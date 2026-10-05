@@ -317,16 +317,22 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .win .trophy{font-size:64px; animation:flipin .6s}
 .win h2{font-family:var(--f-display); font-weight:400; font-size:1.8rem}
 
-#music{position:fixed; left:calc(16px + env(safe-area-inset-left, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); z-index:40}
+#music{position:fixed; left:calc(16px + env(safe-area-inset-left, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); z-index:40; display:flex; flex-direction:column; align-items:flex-start; gap:8px; pointer-events:none}
+#music > *{pointer-events:auto}
+#ytwrap{width:240px; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000; border:2px solid var(--black); box-shadow:0 10px 26px rgba(0,0,0,.5)}
+#ytwrap.small{width:150px}
+#ytwrap.off{display:none}
+#ytwrap iframe, #ytbox{width:100%; height:100%; display:block; border:0}
+#ytscanwrap{position:fixed; left:-9999px; top:0; width:2px; height:2px; overflow:hidden}
+.mhint{background:var(--fg); color:var(--ink); font-weight:800; font-size:.85rem; padding:.45em .8em; border-radius:99px; box-shadow:0 8px 20px rgba(0,0,0,.4); animation:bob 1.4s ease-in-out infinite}
 .mfab{display:flex; align-items:center; gap:6px; border:2px solid var(--black); background:var(--danfo); color:var(--black); font-weight:800; border-radius:99px; padding:.55em 1em; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,.4)}
 .mfab svg{width:18px; height:18px}
-.mfab.on svg{animation:bob 1s ease-in-out infinite}
-.mdock{position:absolute; left:0; bottom:calc(100% + 10px); width:min(360px, calc(100vw - 32px)); max-height:calc(100vh - 120px); overflow:auto; background:var(--ink-2); border:1.5px solid var(--line); border-radius:16px; padding:14px; display:grid; gap:10px; box-shadow:0 20px 50px rgba(0,0,0,.55); transition:transform .25s, opacity .25s}
+.mfab:not(.on){background:var(--ink-3); color:var(--muted); border-color:var(--line)}
+.mdock{position:absolute; left:0; bottom:calc(100% + 10px); width:min(360px, calc(100vw - 32px)); max-height:calc(100vh - 140px); overflow:auto; background:var(--ink-2); border:1.5px solid var(--line); border-radius:16px; padding:14px; display:grid; gap:12px; box-shadow:0 20px 50px rgba(0,0,0,.55); transition:transform .25s, opacity .25s}
 .mdock[data-closed]{transform:translateY(20px); opacity:0; pointer-events:none; visibility:hidden}
-.stations{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px}
-.station{text-align:left; border:1.5px solid var(--line); background:var(--ink); color:var(--fg); border-radius:10px; padding:.5em .65em; cursor:pointer; display:grid; gap:1px}
-.station small{color:var(--muted); font-size:.74rem}
-.station.on{border-color:var(--danfo); background:var(--ink-4)}
+.now{display:grid; gap:2px; background:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:8px 10px}
+.now b{font-size:.92rem}
+@media (max-width:480px){ #ytwrap{width:180px} #ytwrap.small{width:120px} }
 .toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); background:var(--fg); color:var(--ink); padding:.7em 1.1em; border-radius:12px; font-weight:700; z-index:60; box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:calc(100% - 32px); text-align:center}
 .toast.err{background:#FFD6D7; color:#5a0f14}
 
@@ -1388,79 +1394,233 @@ function sound(kind) {
 }
 
 /* ---------------- music ----------------
-   Real songs play through the official Spotify, Audiomack and YouTube players (the hosted web app only).
-   "Game beat" is an original Afro groove generated in the browser, so it works everywhere. */
+   A shuffled radio of Naija songs (old school and latest) from YouTube playlists.
+   Songs play through the official YouTube player. The playlists below are kept up to date
+   by their owners, so new releases show up on their own. To add more, paste a playlist id
+   (the part after "list=") or a single video id (the part after "v=") into MUSIC_BANK. */
 var EMBEDS_OK = false;
-const STATIONS = [
-  { id: 'beat', name: 'Game beat', note: 'Original Afro groove made for the game' },
-  { id: 'afrohits', name: 'Afro Hits', note: 'Spotify', src: 'https://open.spotify.com/embed/playlist/37i9dQZF1DWX0o6sD1a6P5?theme=0', h: 352 },
-  { id: 'rewind', name: 'Rewind: Naija Hits', note: 'Spotify', src: 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcSEAOqwtmQ3?theme=0', h: 352 },
-  { id: 'top100', name: 'Nigeria Top 100', note: 'Audiomack', src: 'https://audiomack.com/embed/playlist/turntable-charts/official-nigeria-top-100', h: 400 },
-  { id: 'afrosounds', name: 'Afrosounds', note: 'Audiomack', src: 'https://audiomack.com/embed/playlist/audiomack-africa/verified-afrobeats', h: 400 },
-  { id: 'custom', name: 'My playlist', note: 'Paste a Spotify, YouTube or Audiomack link' },
-];
-const music = { open: false, station: null, vol: 0.5, custom: (LS.get('nl-music') || {}).custom || '' };
-function embedFor(link) {
-  link = String(link || '').trim();
-  let m;
-  if ((m = link.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/))) return { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0`, h: m[1] === 'track' ? 152 : 352 };
-  if ((m = link.match(/[?&]list=([A-Za-z0-9_-]+)/)) && /youtu/.test(link)) return { src: `https://www.youtube.com/embed/videoseries?list=${m[1]}`, h: 220 };
-  if ((m = link.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/)([A-Za-z0-9_-]{6,})/))) return { src: `https://www.youtube.com/embed/${m[1]}`, h: 220 };
-  if ((m = link.match(/audiomack\.com\/([^/?#]+)\/(playlist|song|album)\/([^/?#]+)/))) return { src: `https://audiomack.com/embed/${m[2]}/${m[1]}/${m[3]}`, h: m[2] === 'song' ? 252 : 400 };
-  return null;
-}
+const MUSIC_BANK = {
+  latest: [
+    'PLSlOfTctV7-6MHkw50_stmsoG96cNh3MY',   // Nigeria Songs 2026 · Top Naija Music
+    'PLJYyuMTDI-idzy2eKxq16k5_RKD3odJ-a',   // Afrobeat Hits 2026
+    'PLRC8ybkwEebo10a7DZnfqz_RIcvSe1ARE',   // New Naija Afrobeat Songs 2026
+    'PLJYyuMTDI-iepsUos_KlQkDvA5JU3pd4c',   // Naija Music Videos 2026
+    'PL7mxZ8M5hvaJABuQV_qzUnnPZNuZ7fhXT',   // Nigeria Songs 2026 (YouTube Music)
+    'PLw3G6ga8QU5MG7i3qUJfty4fCLzmqlZxV',   // Afrobeats Hits
+  ],
+  oldschool: [
+    'PLiA85_8V5VsupQsfI_l8pF4L-dVlw4Zqt',   // Nigerian throwback / old music videos
+    'PL0emhcNGrdTR25of66ZfyoQMxABm9F9uy',   // Naija R&B throwbacks
+    'RDCLAK5uy_lCiFjt1A8f1yPN5XBWJtKuLZrguFE08xU', // Throwback Naija Party
+    'RDCLAK5uy_mhgTbkDErjq7nAfykXMieB1wdueoZu_Mo', // Naija 90s Hits
+    'PLHMCxjdQOGzVT9u0a31G9bsjY_6ye9W_i',   // Top Nigerian Mix
+  ],
+  songs: [],                                 // single video ids that should always be in the mix
+};
+const MODES = { mix: 'Mix', latest: 'Latest', oldschool: 'Old school', beat: 'Game beat' };
+const mpref = Object.assign({ on: true, mode: 'mix', vol: 70, small: false }, LS.get('nl-music2') || {});
+const music = {
+  open: false, unlocked: false, player: null, scanner: null, ready: false, apiLoading: false,
+  bank: [], bankMode: null, scanning: false, current: null, title: '', state: -1,
+  follow: false, followAt: 0, bad: new Set(), history: [], waitT: null,
+};
+function saveMusic() { LS.set('nl-music2', mpref); }
+const shuffleOK = () => !music.follow;
+
 function musicHTML() {
-  const list = STATIONS.filter(st => EMBEDS_OK || !st.src && st.id !== 'custom');
-  return `<button class="mfab ${music.station ? 'on' : ''}" data-music="toggle" aria-label="Music">${ICONS.music}<span>${music.station ? 'Playing' : 'Music'}</span></button>
+  const yt = EMBEDS_OK && mpref.mode !== 'beat';
+  const inRoom = ui.mode === 'online' && ui.state;
+  const hostCtl = !inRoom || ui.state.hostId === ui.me;
+  const modes = Object.entries(MODES).filter(([k]) => EMBEDS_OK || k === 'beat');
+  return `<div id="ytwrap" class="${mpref.on && yt ? '' : 'off'} ${mpref.small ? 'small' : ''}"><div id="ytbox"></div></div><div id="ytscanwrap"><div id="ytscan"></div></div>
+  ${mpref.on && !music.unlocked ? '<div class="mhint">🔊 Tap anywhere to turn on the music</div>' : ''}
+  <button class="mfab ${mpref.on ? 'on' : ''}" data-music="toggle" aria-label="Music">${ICONS.music}<span>${mpref.on ? (music.title ? 'Now playing' : 'Music on') : 'Music off'}</span></button>
   <div class="mdock" ${music.open ? '' : 'data-closed'} role="dialog" aria-label="Music">
-    <div style="display:flex;align-items:center;gap:8px"><b style="flex:1">Music</b>${music.station ? '<button class="btn ghost small" data-music="stop">Stop</button>' : ''}<button class="btn ghost small" data-music="toggle" aria-label="Hide music">Hide</button></div>
-    <div class="stations">${list.map(st => `<button class="station ${music.station === st.id ? 'on' : ''}" data-station="${st.id}"><b>${esc(st.name)}</b><small>${esc(st.note)}</small></button>`).join('')}</div>
-    ${music.station === 'custom' || (!music.station && false) ? '' : ''}
-    <div id="mcustom" ${music.pickCustom ? '' : 'hidden'}><div style="display:flex;gap:6px"><input class="input" id="mlink" placeholder="Paste a playlist or song link" value="${esc(music.custom)}" aria-label="Playlist link"><button class="btn small primary" data-music="play-custom">Play</button></div></div>
-    <div id="mbeat" ${music.station === 'beat' ? '' : 'hidden'}><label class="small muted" for="mvol">Volume</label><input type="range" id="mvol" min="0" max="1" step="0.05" value="${music.vol}" style="width:100%"></div>
-    <div id="mframe"></div>
-    ${EMBEDS_OK ? '<p class="small muted" style="margin:0">Spotify plays full songs if you are logged in to Spotify in this browser; otherwise 30-second previews. Audiomack and YouTube play full songs.</p>' : '<p class="small muted" style="margin:0">Real songs from Spotify, Audiomack and YouTube play on the web version at naijalandlord.app.</p>'}
+    <div style="display:flex;align-items:center;gap:8px"><b style="flex:1">Naija radio</b><button class="btn ghost small" data-music="toggle">Hide</button></div>
+    ${music.title && mpref.on && yt ? `<div class="now"><span class="lbl">Now playing</span><b>${esc(music.title)}</b></div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn small ${mpref.on ? '' : 'primary'}" data-music="power">${mpref.on ? 'Turn music off' : 'Turn music on'}</button>
+      ${yt && mpref.on ? `<button class="btn small" data-music="skip" ${hostCtl ? '' : 'disabled title="The host picks the songs in this room"'}>Next song ⏭</button>
+      <button class="btn small ghost" data-music="size">${mpref.small ? 'Bigger player' : 'Smaller player'}</button>` : ''}
+    </div>
+    <div class="field"><span class="lbl">Station</span><div class="seg">${modes.map(([k, l]) => `<button data-mmode="${k}" class="${mpref.mode === k ? 'on' : ''}" ${hostCtl || k === 'beat' ? '' : 'disabled'}>${l}</button>`).join('')}</div></div>
+    <div class="field"><label class="lbl" for="mvol">Volume</label><input type="range" id="mvol" min="0" max="100" step="5" value="${mpref.vol}" style="width:100%"></div>
+    <p class="small muted" style="margin:0">${EMBEDS_OK
+      ? (inRoom ? (hostCtl ? 'You are the host, so everyone in this room hears the songs you play.' : 'Everyone in this room hears the same song as the host.') + ' ' : '') + 'Songs come from Naija playlists on YouTube that are updated with new releases.'
+      : 'Real Naija songs play on the web version at naijalandlord.app. Here you get the Game beat, an original Afro groove.'}</p>
   </div>`;
 }
 function renderMusic() {
   let root = $('#music');
   if (!root) { root = document.createElement('div'); root.id = 'music'; document.body.appendChild(root); }
-  const frame = $('#mframe', root);
-  const keep = frame && frame.firstChild ? frame.firstChild : null;
-  root.innerHTML = musicHTML();
-  if (keep) $('#mframe', root).appendChild(keep);
+  if (!$('#ytbox', root)) { root.innerHTML = musicHTML(); return; }
+  // keep the YouTube players alive: only redraw the controls around them
+  const wrap = $('#ytwrap', root), scan = $('#ytscanwrap', root);
+  const tmp = document.createElement('div'); tmp.innerHTML = musicHTML();
+  $('#ytwrap', tmp).replaceWith(wrap); $('#ytscanwrap', tmp).replaceWith(scan);
+  const yt = EMBEDS_OK && mpref.mode !== 'beat';
+  wrap.className = `${mpref.on && yt ? '' : 'off'} ${mpref.small ? 'small' : ''}`;
+  root.replaceChildren(...tmp.childNodes);
 }
-function playStation(id, link) {
-  const st = STATIONS.find(x => x.id === id);
+
+/* YouTube player */
+function loadYT() {
+  if (window.YT && window.YT.Player) return Promise.resolve();
+  if (music.apiLoading) return music.apiLoading;
+  music.apiLoading = new Promise(res => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (prev) prev(); res(); };
+    const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.async = true;
+    s.onerror = () => res();
+    document.head.appendChild(s);
+  });
+  return music.apiLoading;
+}
+async function startMusic() {
+  if (!mpref.on) return;
+  if (mpref.mode === 'beat' || !EMBEDS_OK) { if (music.unlocked) Beat.start(); return; }
+  await loadYT();
+  if (!window.YT || !window.YT.Player) return;
+  if (!music.player) {
+    music.player = new YT.Player('ytbox', {
+      width: '100%', height: '100%',
+      playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, controls: 1 },
+      events: {
+        onReady: () => {
+          music.ready = true;
+          if (!music.unlocked) music.player.mute(); else { music.player.unMute(); music.player.setVolume(mpref.vol); }
+          if (music.pending) { const p = music.pending; music.pending = null; followTrack(p); }
+          else if (shuffleOK()) nextSong();
+        },
+        onStateChange: e => {
+          music.state = e.data;
+          if (e.data === 1) {
+            const d = music.player.getVideoData ? music.player.getVideoData() : null;
+            if (d && d.title && d.title !== music.title) { music.title = d.title; renderMusic(); }
+          }
+          if (e.data === 0) songEnded();
+        },
+        onError: () => { if (music.current) music.bad.add(music.current); if (shuffleOK()) setTimeout(nextSong, 400); },
+      },
+    });
+  } else if (music.ready && music.state !== 1 && shuffleOK()) nextSong();
+}
+function stopMusicAll() {
   Beat.stop();
-  const holder = $('#mframe'); if (holder) holder.innerHTML = '';
-  music.station = id; music.pickCustom = id === 'custom' && !link;
-  if (id === 'beat') { Beat.start(); renderMusic(); return; }
-  let emb = st && st.src ? { src: st.src, h: st.h } : null;
-  if (id === 'custom') {
-    if (!link) { music.station = null; renderMusic(); const i = $('#mlink'); if (i) i.focus(); return; }
-    emb = embedFor(link);
-    if (!emb) { toast('That link is not a Spotify, YouTube or Audiomack link I can play.', true); music.station = null; music.pickCustom = true; renderMusic(); return; }
-    music.custom = link; LS.set('nl-music', { custom: link });
+  if (music.player && music.ready) { try { music.player.stopVideo(); } catch (e) {} }
+  music.title = '';
+}
+
+/* reading playlists into one shuffled bank */
+function scanList(list) {
+  return new Promise(res => {
+    let done = false;
+    const finish = ids => { if (!done) { done = true; res(ids || []); } };
+    const go = () => {
+      music.scanResolve = () => { try { finish(music.scanner.getPlaylist()); } catch (e) { finish([]); } };
+      try { music.scanner.cuePlaylist({ list, listType: 'playlist' }); } catch (e) { finish([]); }
+    };
+    if (!music.scanner) {
+      music.scanner = new YT.Player('ytscan', { width: 2, height: 2, playerVars: { autoplay: 0, mute: 1 },
+        events: { onReady: go, onStateChange: e => { if (e.data === 5 && music.scanResolve) setTimeout(() => music.scanResolve && music.scanResolve(), 300); } } });
+    } else go();
+    setTimeout(() => finish(music.scanner && music.scanner.getPlaylist ? music.scanner.getPlaylist() : []), 8000);
+  });
+}
+async function ensureBank() {
+  const mode = mpref.mode === 'beat' ? 'mix' : mpref.mode;
+  if (music.bankMode === mode && music.bank.length) return;
+  const cached = LS.get('nl-bank-' + mode);
+  if (cached && Date.now() - cached.t < 12 * 3600 * 1000 && cached.ids.length > 20) { music.bank = cached.ids; music.bankMode = mode; return; }
+  if (music.scanning) return;
+  music.scanning = true;
+  const lists = mode === 'latest' ? MUSIC_BANK.latest : mode === 'oldschool' ? MUSIC_BANK.oldschool : MUSIC_BANK.latest.concat(MUSIC_BANK.oldschool);
+  const order = lists.slice().sort(() => Math.random() - 0.5);
+  const all = new Set(MUSIC_BANK.songs);
+  music.bank = Array.from(all); music.bankMode = mode;
+  for (const list of order) {
+    const ids = await scanList(list);
+    (ids || []).forEach(id => all.add(id));
+    music.bank = Array.from(all);
+    if (!music.current && shuffleOK() && music.bank.length && music.ready) nextSong();
+  }
+  music.scanning = false;
+  if (music.bank.length > 20) LS.set('nl-bank-' + mode, { t: Date.now(), ids: music.bank });
+}
+async function nextSong() {
+  if (!mpref.on || !music.ready || mpref.mode === 'beat') return;
+  if (!music.bank.length) { ensureBank(); return; }
+  ensureBank();
+  const pool = music.bank.filter(id => !music.bad.has(id) && !music.history.includes(id));
+  const pick = (pool.length ? pool : music.bank)[Math.floor(Math.random() * (pool.length || music.bank.length))];
+  music.history.push(pick); if (music.history.length > 60) music.history.shift();
+  music.current = pick; music.title = '';
+  music.player.loadVideoById(pick);
+  musicRoomBroadcast({ v: pick, t: Date.now() });
+  renderMusic();
+}
+function songEnded() {
+  if (shuffleOK()) { nextSong(); return; }
+  clearTimeout(music.waitT);
+  music.waitT = setTimeout(() => { if (music.state === 0) { music.follow = false; nextSong(); } }, 10000);
+}
+/* everyone in a room plays the host's song, from the same point */
+function followTrack(tr) {
+  if (!tr || !tr.v) return;
+  music.follow = true; clearTimeout(music.waitT);
+  if (!mpref.on || mpref.mode === 'beat' || !EMBEDS_OK) { music.current = tr.v; return; }
+  if (!music.ready) { music.pending = tr; startMusic(); return; }
+  const at = Math.max(0, (Date.now() - tr.t) / 1000);
+  if (tr.v !== music.current) { music.current = tr.v; music.title = ''; music.player.loadVideoById({ videoId: tr.v, startSeconds: at }); }
+  else if (music.state !== 1 && music.state !== 3) { music.player.seekTo(at, true); music.player.playVideo(); }
+}
+function musicRoomBroadcast() {}       // replaced in the web build
+function musicCurrent() { return music.current ? { v: music.current, t: Date.now() - ((music.player && music.ready && music.player.getCurrentTime) ? music.player.getCurrentTime() * 1000 : 0) } : null; }
+
+/* the first tap anywhere turns the sound on (browsers block sound before that) */
+function unlockAudio() {
+  if (music.unlocked) return;
+  music.unlocked = true;
+  if (mpref.on) {
+    if (mpref.mode === 'beat' || !EMBEDS_OK) Beat.start();
+    else if (music.player && music.ready) { music.player.unMute(); music.player.setVolume(mpref.vol); if (music.state !== 1) music.player.playVideo(); }
+    else startMusic();
   }
   renderMusic();
-  const f = document.createElement('iframe');
-  f.src = emb.src; f.height = emb.h; f.width = '100%'; f.loading = 'lazy'; f.title = st ? st.name : 'Music';
-  f.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
-  f.style.border = '0'; f.style.borderRadius = '12px'; f.style.display = 'block';
-  $('#mframe').appendChild(f);
 }
-function stopMusic() { Beat.stop(); music.station = null; music.pickCustom = false; const h = $('#mframe'); if (h) h.innerHTML = ''; renderMusic(); }
+document.addEventListener('pointerdown', unlockAudio, true);
+document.addEventListener('keydown', unlockAudio, true);
+
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-music],[data-station]');
-  if (!b) return;
-  if (b.dataset.station) { playStation(b.dataset.station); return; }
+  const b = e.target.closest('[data-music],[data-mmode]');
+  if (!b || b.disabled) return;
+  if (b.dataset.mmode) {
+    const m = b.dataset.mmode;
+    if (m === mpref.mode) return;
+    mpref.mode = m; saveMusic(); stopMusicAll();
+    if (m === 'beat') { if (music.unlocked && mpref.on) Beat.start(); }
+    else { music.bankMode = null; music.bank = []; music.current = null; if (music.follow && ui.mode === 'online') { const tr = music.lastRoomTrack; if (tr) followTrack(tr); } else startMusic().then(() => nextSong()); }
+    renderMusic(); return;
+  }
   const k = b.dataset.music;
-  if (k === 'toggle') { music.open = !music.open; const d = $('.mdock'); if (d) d.toggleAttribute('data-closed', !music.open); }
-  if (k === 'stop') stopMusic();
-  if (k === 'play-custom') playStation('custom', ($('#mlink') || {}).value);
+  if (k === 'toggle') { music.open = !music.open; const d = $('.mdock'); if (d) d.toggleAttribute('data-closed', !music.open); return; }
+  if (k === 'power') {
+    mpref.on = !mpref.on; saveMusic();
+    if (!mpref.on) { Beat.stop(); if (music.player && music.ready) music.player.mute(); }
+    else if (mpref.mode === 'beat' || !EMBEDS_OK) Beat.start();
+    else if (music.player && music.ready) { music.player.unMute(); music.player.setVolume(mpref.vol); music.player.playVideo(); }
+    else startMusic();
+    renderMusic(); return;
+  }
+  if (k === 'skip') { nextSong(); return; }
+  if (k === 'size') { mpref.small = !mpref.small; saveMusic(); renderMusic(); return; }
 });
-document.addEventListener('input', e => { if (e.target.id === 'mvol') { music.vol = +e.target.value; Beat.setVol(music.vol); } });
+document.addEventListener('input', e => {
+  if (e.target.id !== 'mvol') return;
+  mpref.vol = +e.target.value; saveMusic();
+  Beat.setVol(mpref.vol / 100);
+  if (music.player && music.ready && music.unlocked) music.player.setVolume(mpref.vol);
+});
 
 /* an original Afrobeats-style groove: kick, shaker, rim, log-drum bass and soft chords */
 const Beat = {
@@ -1478,7 +1638,8 @@ const Beat = {
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.noise = buf;
     }
-    this.master = actx.createGain(); this.master.gain.value = music.vol * 0.5; this.master.connect(actx.destination);
+    if (this.on) return;
+    this.master = actx.createGain(); this.master.gain.value = mpref.vol / 100 * 0.5; this.master.connect(actx.destination);
     this.on = true; this.step = 0; this.next = actx.currentTime + 0.08;
     this.timer = setInterval(() => this.tick(), 25);
   },
@@ -2785,6 +2946,7 @@ document.addEventListener('keydown', e => {
    ===================================================================== */
 function start(data) {
   renderMusic();
+  if (EMBEDS_OK && mpref.on && mpref.mode !== 'beat') startMusic();
   window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ local: ui.mode === 'local' ? ui.state : null }));
   if (data && data.local && data.local.status === 'playing') enterLocal(data.local);
   else showHome();
@@ -2879,6 +3041,11 @@ function onNetMessage(topic, buf) {
     return;
   }
   if (t[2] === 'act' && data) { hostHandle(data); return; }
+  if (t[2] === 'music' && data) {
+    music.lastRoomTrack = data;
+    if (!ui.state || ui.state.hostId !== ui.me) followTrack(data);
+    return;
+  }
   if (t[2] === 'err' && t[3] === ui.me && data) { toast(data.error, true); return; }
 }
 
@@ -2919,6 +3086,9 @@ function commit(s) {
 
 /* keep subscriptions in line with who is hosting */
 function afterState(s) {
+  if (s.hostId === ui.me && music.follow) { music.follow = false; }
+  if (s.hostId === ui.me && NET.musicFor !== s.code) { NET.musicFor = s.code; const tr = musicCurrent(); if (tr) pub('room/' + s.code + '/music', tr, true); }
+  if (s.hostId !== ui.me) NET.musicFor = null;
   if (s.hostId === ui.me && !NET.actSub) { sub('room/' + s.code + '/act'); NET.actSub = true; }
   if (s.hostId !== ui.me && NET.actSub) { const t = NET.prefix + 'room/' + s.code + '/act'; NET.client && NET.client.unsubscribe(t); NET.roomTopics = NET.roomTopics.filter(x => x !== t); NET.actSub = false; }
   if (NET.presenceSub !== s.hostId) {
@@ -2963,8 +3133,14 @@ function hostBanner() {
   return `<div class="note" style="background:rgba(0,0,0,.35);color:#fff;border-color:var(--danfo)">The host has gone offline. ${canTake ? 'Wait for them, or take over and run the game from your device.' : 'Waiting for them to come back.'}
     ${canTake ? '<div style="margin-top:8px"><button class="btn primary small" data-net="takeover">Take over as host</button></div>' : ''}</div>`;
 }
+function musicRoomBroadcast(tr) {
+  const s = ui.state;
+  if (!tr || !s || ui.mode !== 'online' || s.hostId !== ui.me || s.status === 'ended' || s.status === 'closed') return;
+  pub('room/' + s.code + '/music', tr, true);
+}
 function roomGone(code) {
   if (!code) return;
+  pub('room/' + code + '/music', null, true);
   pub('room/' + code + '/state', null, true);
   pub('lobby/' + code, null, true);
 }
@@ -3020,6 +3196,7 @@ async function enterRoom(code, creating) {
   try { history.replaceState(null, '', '#' + code); } catch (e) {}
   app().innerHTML = `<section class="page screen"><div class="topbar"><button class="btn ghost small" data-act="lobby-leave">← Back</button><h1>Room ${esc(code)}</h1></div><div class="note">Opening room ${esc(code)}…</div></section>`;
   sub('room/' + code + '/state');
+  sub('room/' + code + '/music');
   sub('room/' + code + '/err/' + ui.me);
   if (!creating) {
     NET.joinWait = setTimeout(() => {
@@ -3032,7 +3209,8 @@ function stopOnline() {
   if (s && ui.mode === 'online' && s.hostId === ui.me && s.status === 'lobby') pub('lobby/' + s.code, null, true);
   if (s && ui.mode === 'online' && s.hostId === ui.me && NET.client) NET.client.publish(NET.prefix + 'presence/' + ui.me, '0', { retain: true });
   if (NET.client) NET.roomTopics.forEach(t => NET.client.unsubscribe(t));
-  NET.roomTopics = []; NET.actSub = false; NET.pendingJoin = null;
+  NET.roomTopics = []; NET.actSub = false; NET.pendingJoin = null; NET.musicFor = null;
+  music.follow = false; music.lastRoomTrack = null;
   clearTimeout(NET.joinWait);
   if (NET.presenceSub && NET.client) NET.client.unsubscribe(NET.prefix + 'presence/' + NET.presenceSub);
   NET.presenceSub = null;
