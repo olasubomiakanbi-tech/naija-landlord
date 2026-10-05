@@ -161,18 +161,22 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .side-l .t-in{transform:translate(-50%,-50%) rotate(90deg)}
 .side-r .t-in{transform:translate(-50%,-50%) rotate(-90deg)}
 .side-t .t-in{flex-direction:column-reverse}
-.band{flex:none; height:27%; background:var(--gc); display:flex; align-items:center; justify-content:center; gap:1px; position:relative; overflow:hidden}
+.band{flex:none; height:24%; background:var(--gc); display:flex; align-items:center; justify-content:center; gap:1px; position:relative; overflow:hidden}
 .band::after{content:''; position:absolute; inset:0; opacity:.22; background:
   radial-gradient(circle at 25% 50%, #fff 0 12%, transparent 13%) 0 0/ calc(var(--u)*.34) 100%,
   linear-gradient(90deg, transparent 46%, rgba(0,0,0,.6) 46% 54%, transparent 54%) 0 0/ calc(var(--u)*.34) 100%}
 .band .hs{position:relative; z-index:1; display:flex; gap:1px}
 .house{width:calc(var(--u)*.15); height:calc(var(--u)*.15); background:#0E7A42; border:1px solid #fff; clip-path:polygon(50% 0,100% 45%,100% 100%,0 100%,0 45%)}
 .hotel{width:calc(var(--u)*.42); height:calc(var(--u)*.18); background:#D4252D; border:1px solid #fff; border-radius:2px}
+.t-art{flex:none; display:flex; justify-content:center; padding-top:2px}
+.t-art svg{width:calc(var(--u)*.36); height:calc(var(--u)*.36)}
+.tiny .t-art svg{width:calc(var(--u)*.62); height:calc(var(--u)*.62)}
+.tiny .t-art{flex:1; align-items:center}
 .t-name{flex:1; display:flex; align-items:center; justify-content:center; padding:1px 2px; font-size:calc(var(--u)*.155); line-height:1.08; font-weight:800; overflow:hidden; overflow-wrap:anywhere; hyphens:auto}
 .t-price{flex:none; font-size:calc(var(--u)*.16); font-weight:800; padding-bottom:2px; font-variant-numeric:tabular-nums; color:#3c3f60}
 .t-ico{flex:none; display:flex; justify-content:center; padding-top:2px}
 .t-ico svg{width:calc(var(--u)*.52); height:calc(var(--u)*.52)}
-.own{flex:none; height:13%; background:var(--own); display:grid; place-items:center; overflow:hidden; box-shadow:inset 0 1px 0 rgba(0,0,0,.25)}
+.own{flex:none; height:11%; background:var(--own); display:grid; place-items:center; overflow:hidden; box-shadow:inset 0 1px 0 rgba(0,0,0,.25)}
 .own .emb{font-size:calc(var(--u)*.15); line-height:1; filter:drop-shadow(0 1px 0 rgba(255,255,255,.6))}
 .tiny .own .emb{display:none}
 .hs{align-items:flex-end; justify-content:center; height:100%; padding-bottom:1px}
@@ -307,6 +311,8 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .sheet{background:var(--ink-2); border:1.5px solid var(--line); border-radius:18px; max-width:400px; width:100%; max-height:90vh; overflow:auto; padding:18px; display:grid; gap:14px}
 .deed{background:var(--tile); color:var(--tile-ink); border-radius:12px; overflow:hidden; border:2px solid #1A1D3B}
 .deed .dh{background:var(--gc, #1A1D3B); color:#fff; padding:14px; text-align:center}
+.deed .dpic{display:flex; justify-content:center; margin-bottom:6px}
+.deed .dpic svg{width:64px; height:64px; background:rgba(255,255,255,.92); border-radius:14px; padding:6px}
 .deed .dh small{display:block; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; opacity:.9; font-weight:800}
 .deed .dh h3{font-family:var(--f-display); font-weight:400; font-size:1.3rem; margin-top:4px; text-shadow:0 2px 0 rgba(0,0,0,.25)}
 .deed table{width:100%; border-collapse:collapse; font-size:.9rem; font-variant-numeric:tabular-nums}
@@ -319,7 +325,8 @@ h1,h2,h3{text-wrap:balance; margin:0}
 
 #music{position:fixed; left:calc(16px + env(safe-area-inset-left, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); z-index:40; display:flex; flex-direction:column; align-items:flex-start; gap:8px; pointer-events:none}
 #music > *{pointer-events:auto}
-.mhint{background:var(--fg); color:var(--ink); font-weight:800; font-size:.85rem; padding:.45em .8em; border-radius:99px; box-shadow:0 8px 20px rgba(0,0,0,.4); animation:bob 1.4s ease-in-out infinite}
+.mhint{background:var(--fg); color:var(--ink); font-weight:800; font-size:.85rem; padding:.45em .8em; border-radius:99px; box-shadow:0 8px 20px rgba(0,0,0,.4); animation:nudge 1.4s ease-in-out infinite}
+@keyframes nudge{50%{transform:translateY(-4px)}}
 .mfab{display:flex; align-items:center; gap:6px; border:2px solid var(--black); background:var(--danfo); color:var(--black); font-weight:800; border-radius:99px; padding:.55em 1em; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,.4)}
 .mfab svg{width:18px; height:18px}
 .mfab:not(.on){background:var(--ink-3); color:var(--muted); border-color:var(--line)}
@@ -335,6 +342,12 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .sta small{color:var(--muted); font-weight:600; font-size:.74rem}
 .sta.on{border-color:var(--danfo); background:var(--ink-4)}
 .sta:disabled{cursor:default; opacity:.7}
+.credit{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:6px; color:var(--muted); font-size:.88rem; padding-block:10px 70px; text-align:center}
+.credit b{color:var(--fg)}
+.credit a{color:var(--danfo); font-weight:800; text-decoration:none; display:inline-flex; align-items:center; gap:4px}
+.credit a:hover{text-decoration:underline}
+.credit a svg{width:15px; height:15px}
+.credit.compact{font-size:.78rem; padding-block:4px 0; justify-content:flex-start}
 .toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); background:var(--fg); color:var(--ink); padding:.7em 1.1em; border-radius:12px; font-weight:700; z-index:60; box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:calc(100% - 32px); text-align:center}
 .toast.err{background:#FFD6D7; color:#5a0f14}
 
@@ -1356,6 +1369,7 @@ const ICONS = {
   ballot: '<svg viewBox="0 0 32 32"><rect x="5" y="13" width="22" height="15" rx="2" fill="#fff" stroke="#141414" stroke-width="1.8"/><rect x="11" y="13" width="10" height="2.5" fill="#141414"/><path d="M12 4h8l1 10h-10z" fill="#16964F" stroke="#141414" stroke-width="1.5"/><path d="M14 8l1.5 1.5L18 6.5" stroke="#fff" stroke-width="1.4" fill="none"/><text x="16" y="24" text-anchor="middle" font-size="5.5" font-weight="900" font-family="Arial" fill="#D4252D">VOTE</text></svg>',
   sound: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>',
   mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="m17 9 5 6M22 9l-5 6"/></svg>',
+  insta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>',
   music: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9H3z"/><path d="M10 20v-5h4v5"/></svg>',
 };
@@ -1661,6 +1675,72 @@ function toast(msg, err) {
   clearTimeout(toastT); toastT = setTimeout(() => { el.hidden = true; }, 3200);
 }
 
+/* ---------------- property pictures ----------------
+   A small drawing on every property that resembles the place. */
+const K = '#141414';
+const S = (body) => `<svg viewBox="0 0 32 32" aria-hidden="true" stroke="${K}" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">${body}</svg>`;
+const ART_ICONS = {
+  rock: S('<path d="M3 27 9 12l5-4 6 3 4 6 5 10z" fill="#9B8B7A"/><path d="M11 15l3 2M17 13l2 4M21 19l2 2" fill="none"/><path d="M2 27h28" />'),
+  flagrock: S('<path d="M3 27 8 14l6-5 7 2 5 7 3 9z" fill="#A99683"/><path d="M15 9V3" /><path d="M15 3h6v4h-6z" fill="#16964F" stroke-width="1"/><path d="M17 3h2v4h-2z" fill="#fff" stroke="none"/><path d="M2 27h28"/>'),
+  hills: S('<path d="M1 27 9 13l6 7 5-9 11 16z" fill="#5E9E52"/><path d="M9 13l2 4M20 11l2 5" fill="none"/><circle cx="25" cy="7" r="3" fill="#F7C21A"/>'),
+  spring: S('<path d="M4 26c0-4 6-6 12-6s12 2 12 6z" fill="#4FB9E3"/><path d="M10 16c0-3 2-3 2-6M16 16c0-3 2-3 2-6M22 16c0-3 2-3 2-6" fill="none" stroke="#E2482F"/>'),
+  falls: S('<path d="M3 4h10v20H3zM19 4h10v20H19z" fill="#8A7B6A"/><path d="M13 4h6v20h-6z" fill="#8FD0F2"/><path d="M15 8v12M17 6v14" stroke="#fff"/><path d="M3 27c4-3 22-3 26 0" fill="#4FB9E3"/>'),
+  mountain: S('<path d="M2 28 12 10l5 7 4-5 9 16z" fill="#6E8F5A"/><path d="M10 14l2-4 2 3z" fill="#fff"/><path d="M4 5l24 8" fill="none"/><rect x="14" y="7" width="5" height="4" rx="1" fill="#E2482F"/>'),
+  market: S('<path d="M4 13h24v14H4z" fill="#F1EAD6"/><path d="M3 13l3-7h20l3 7z" fill="#EE8420"/><path d="M9 6l-2 7M16 6v7M23 6l2 7" fill="none"/><circle cx="10" cy="21" r="2.5" fill="#E2482F"/><circle cx="16" cy="22" r="2.5" fill="#F7C21A"/><circle cx="22" cy="21" r="2.5" fill="#16964F"/>'),
+  palace: S('<path d="M5 28V14h22v14z" fill="#C98B4F"/><path d="M5 14l3-5 3 5M13 14l3-7 3 7M21 14l3-5 3 5" fill="#B5743C"/><path d="M14 28v-6a2 2 0 0 1 4 0v6" fill="#5A3416"/><path d="M8 18h3M21 18h3" />'),
+  crown: S('<path d="M5 22 4 9l7 6 5-9 5 9 7-6-1 13z" fill="#F7C21A"/><path d="M5 22h22v4H5z" fill="#E2482F"/><circle cx="16" cy="18" r="2" fill="#2445AE"/>'),
+  grove: S('<path d="M16 28V17" stroke-width="2.4"/><circle cx="16" cy="11" r="8" fill="#16964F"/><circle cx="10" cy="15" r="5" fill="#2DB46A"/><circle cx="22" cy="15" r="5" fill="#2DB46A"/><path d="M5 28h22"/>'),
+  cave: S('<path d="M2 28C2 14 8 5 16 5s14 9 14 23z" fill="#8A7B6A"/><path d="M9 28c0-8 3-13 7-13s7 5 7 13z" fill="#2B2420"/><path d="M12 9l1 3M20 8l-1 3"/>'),
+  tower: S('<path d="M10 29V5h12v24z" fill="#C7CED9"/><path d="M13 8h2M17 8h2M13 12h2M17 12h2M13 16h2M17 16h2M13 20h2M17 20h2M13 24h2M17 24h2" stroke-width="1.6"/><path d="M14 5V2h4v3"/>'),
+  boat: S('<path d="M4 20h24l-4 6H8z" fill="#fff"/><path d="M15 4v16" /><path d="M15 5l9 12h-9z" fill="#F7C21A"/><path d="M14 7 7 17h7z" fill="#E2482F"/><path d="M2 29c3 0 3-1.5 6-1.5s3 1.5 6 1.5 3-1.5 6-1.5 3 1.5 6 1.5" stroke="#2445AE" fill="none"/>'),
+  mall: S('<path d="M7 11h18l-2 17H9z" fill="#D63F8C"/><path d="M12 11V8a4 4 0 0 1 8 0v3" fill="none" stroke-width="1.8"/><path d="M12 17h8" stroke="#fff"/>'),
+  elephant: S('<path d="M6 24v-7c0-5 4-8 10-8s9 3 9 8v7h-4v-4h-3v4h-4v-4h-3v4z" fill="#9AA3B0"/><path d="M25 15c3 0 4 3 3 6l-2 4" fill="none" stroke-width="1.8"/><circle cx="22" cy="13" r="1" fill="#141414"/><path d="M14 11c-3 1-4 4-2 6" fill="none"/>'),
+  wheel: S('<circle cx="16" cy="13" r="9" fill="none" stroke-width="1.8"/><path d="M16 4v18M7 13h18M10 7l12 12M22 7 10 19" stroke-width="1"/><path d="M16 13l-6 15M16 13l6 15M8 28h16"/><circle cx="16" cy="4" r="2" fill="#E2482F"/><circle cx="25" cy="13" r="2" fill="#F7C21A"/><circle cx="7" cy="13" r="2" fill="#4FB9E3"/>'),
+  lake: S('<ellipse cx="16" cy="21" rx="13" ry="6" fill="#4FB9E3"/><path d="M9 21h4M18 23h5" stroke="#fff"/><path d="M6 15V9M6 9l-3 3M6 9l3 3M26 15V8M26 8l-3 3M26 8l3 3" stroke="#16964F"/>'),
+  fountain: S('<path d="M5 28h22l-2-6H7z" fill="#C7CED9"/><path d="M16 22V9" stroke="#2445AE" stroke-width="2"/><path d="M16 9c-6 0-8 6-8 11M16 9c6 0 8 6 8 11" fill="none" stroke="#4FB9E3" stroke-width="1.8"/><circle cx="16" cy="7" r="2" fill="#8FD0F2"/>'),
+  stadium: S('<path d="M3 26c0-7 6-12 13-12s13 5 13 12z" fill="#E9E2CF"/><path d="M9 26c0-4 3-7 7-7s7 3 7 7z" fill="#16964F"/><path d="M5 11h22" /><path d="M8 11V7M24 11V7M16 11V5" /><path d="M16 5h5v3h-5z" fill="#16964F" stroke-width="1"/>'),
+  theatre: S('<path d="M3 26C3 18 9 9 16 9s13 9 13 17z" fill="#9AA3B0"/><path d="M3 26h26" stroke-width="2"/><path d="M8 26c0-6 4-12 8-12s8 6 8 12" fill="none"/><path d="M12 6l4-3 4 3" fill="none"/>'),
+  canopy: S('<path d="M3 13c4 4 9 4 13 0s9-4 13 0" fill="none" stroke="#8A4B2A" stroke-width="2"/><path d="M5 15v13M27 15v13M16 13v15" stroke="#8A4B2A"/><circle cx="8" cy="8" r="5" fill="#16964F"/><circle cx="24" cy="8" r="5" fill="#16964F"/><circle cx="16" cy="6" r="4" fill="#2DB46A"/>'),
+  skyline: S('<path d="M3 28V16h5v12M9 28V8h6v20M16 28V12h5v16M22 28V5h7v23" fill="#5AB0FF"/><path d="M2 28h28M24 9h3M24 13h3M24 17h3M11 12h2M11 16h2" /><path d="M2 30c4-2 8-2 14 0s10 2 14 0" stroke="#2445AE" fill="none"/>'),
+  bridge: S('<path d="M2 22h28" stroke-width="2.2"/><path d="M10 22V6M22 22V6" stroke-width="2"/><path d="M10 6 2 22M10 6l8 16M22 6l-8 16M22 6l8 16" stroke-width="1"/><path d="M2 27c4-2 8-2 14 0s10 2 14 0" stroke="#2445AE" fill="none"/>'),
+  island: S('<path d="M3 27c3-4 23-4 26 0z" fill="#F2D07A"/><path d="M8 24V16h8v8" fill="#fff"/><path d="M7 16l5-4 5 4z" fill="#E2482F"/><path d="M22 24c0-6 1-11 2-14" fill="none" stroke="#8A4B2A" stroke-width="1.8"/><path d="M24 10c-3-2-6-1-7 1M24 10c3-2 6-1 7 1M24 10c-1-3-4-4-6-3M24 10c1-3 4-4 6-3" stroke="#16964F" stroke-width="1.6" fill="none"/><path d="M1 30h30" stroke="#2445AE"/>'),
+  salon: S('<circle cx="9" cy="24" r="4" fill="none" stroke-width="1.8"/><circle cx="20" cy="24" r="4" fill="none" stroke-width="1.8"/><path d="M11 21 24 4M18 21 7 6" stroke-width="2"/><path d="M24 4h3v3" fill="#D63F8C"/>'),
+  food: S('<path d="M4 16h24a12 10 0 0 1-24 0z" fill="#F1EAD6"/><ellipse cx="13" cy="15" rx="6" ry="4" fill="#5A4636"/><ellipse cx="21" cy="15" rx="5" ry="3" fill="#2DB46A"/><path d="M12 9c0-2 2-2 2-4M18 9c0-2 2-2 2-4" fill="none" stroke="#9AA3B0"/>'),
+  tv: S('<rect x="3" y="6" width="26" height="17" rx="2" fill="#2445AE"/><rect x="6" y="9" width="20" height="11" fill="#16964F"/><circle cx="16" cy="14.5" r="2.5" fill="#fff"/><path d="M11 27h10M16 23v4"/>'),
+  radio: S('<rect x="3" y="11" width="26" height="16" rx="3" fill="#E2482F"/><circle cx="11" cy="19" r="5" fill="#F1EAD6"/><path d="M9 17h4M9 19h4M9 21h4" stroke-width="1"/><rect x="19" y="15" width="7" height="3" fill="#F7C21A"/><path d="M7 11 22 4"/>'),
+  sax: S('<path d="M19 3h4l-1 3-3 1v13a6 6 0 0 1-12 0v-3h4v3a2 2 0 0 0 4 0z" fill="#F7C21A"/><circle cx="17" cy="11" r="1" fill="#141414"/><circle cx="17" cy="15" r="1" fill="#141414"/><path d="M3 28h26" stroke="#E2482F" stroke-width="2"/>'),
+  hospital: S('<rect x="5" y="7" width="22" height="21" fill="#fff"/><path d="M13 11h6v4h4v6h-4v4h-6v-4H9v-6h4z" fill="#E2482F" stroke-width="1"/>'),
+  laptop: S('<rect x="6" y="7" width="20" height="14" rx="1.5" fill="#2445AE"/><path d="M3 24h26l-2 3H5z" fill="#C7CED9"/><path d="M12 12l-3 2 3 2M20 12l3 2-3 2M17 11l-2 6" stroke="#fff" fill="none"/>'),
+  gradcap: S('<path d="M2 12 16 6l14 6-14 6z" fill="#141414"/><path d="M8 15v6c4 3 12 3 16 0v-6" fill="#2445AE"/><path d="M28 13v8" /><circle cx="28" cy="22" r="1.5" fill="#F7C21A"/>'),
+  books: S('<rect x="4" y="9" width="5" height="18" fill="#E2482F"/><rect x="9" y="6" width="5" height="21" fill="#2445AE"/><rect x="14" y="10" width="5" height="17" fill="#16964F"/><path d="M20 11l4-1 4 16-4 1z" fill="#F7C21A"/><path d="M3 27h26"/>'),
+  dumbbell: S('<rect x="3" y="11" width="4" height="10" rx="1" fill="#141414"/><rect x="7" y="9" width="4" height="14" rx="1" fill="#E2482F"/><rect x="21" y="9" width="4" height="14" rx="1" fill="#E2482F"/><rect x="25" y="11" width="4" height="10" rx="1" fill="#141414"/><path d="M11 16h10" stroke-width="2.4"/>'),
+  court: S('<path d="M3 11 16 4l13 7z" fill="#C7CED9"/><path d="M5 11h22M5 26h22" stroke-width="1.8"/><path d="M8 13v11M13 13v11M19 13v11M24 13v11" stroke-width="2"/><path d="M3 28h26"/>'),
+  cocktail: S('<path d="M7 6h18l-9 11z" fill="#EE8420"/><path d="M16 17v9M11 27h10"/><circle cx="22" cy="6" r="3" fill="#F7C21A"/><path d="M12 9h8" stroke="#fff"/>'),
+  umbrella: S('<path d="M3 15a13 10 0 0 1 26 0z" fill="#E2482F"/><path d="M8 15a8 9 0 0 1 8-9 8 9 0 0 1 8 9" fill="none"/><path d="M16 15v10" stroke-width="1.8"/><path d="M1 28c4-2 8-2 15 0s11 2 15 0" fill="#F2D07A" stroke="#C99B3F"/>'),
+  rooftop: S('<path d="M6 29V14h20v15z" fill="#F1EAD6"/><path d="M4 14h24" stroke-width="2"/><path d="M9 14V8h14v6" fill="none"/><path d="M11 18h3M18 18h3M11 23h3M18 23h3"/><path d="M7 5l1 1M25 4l-1 1M16 3v1" stroke="#F7C21A" stroke-width="2"/>'),
+  disco: S('<path d="M16 2v5"/><circle cx="16" cy="16" r="9" fill="#C7CED9"/><path d="M7 16h18M16 7v18M9 11h14M9 21h14M11 8c-2 5-2 11 0 16M21 8c2 5 2 11 0 16" stroke-width="1" fill="none"/><path d="M4 4l2 2M28 4l-2 2M4 28l2-2M28 28l-2-2" stroke="#D63F8C" stroke-width="2"/>'),
+  dice: S('<rect x="4" y="9" width="14" height="14" rx="3" fill="#fff" transform="rotate(-12 11 16)"/><rect x="15" y="12" width="13" height="13" rx="3" fill="#E2482F"/><circle cx="9" cy="14" r="1.3" fill="#141414"/><circle cx="13" cy="18" r="1.3" fill="#141414"/><circle cx="19" cy="16" r="1.2" fill="#fff" stroke="none"/><circle cx="24" cy="21" r="1.2" fill="#fff" stroke="none"/><circle cx="21.5" cy="18.5" r="1.2" fill="#fff" stroke="none"/>'),
+  golf: S('<path d="M2 27c5-4 23-4 28 0z" fill="#2DB46A"/><path d="M15 25V4" stroke-width="1.6"/><path d="M15 4l10 4-10 4z" fill="#E2482F"/><circle cx="21" cy="24" r="1.6" fill="#fff"/>'),
+  hotel: S('<path d="M6 29V7h20v22z" fill="#F1EAD6"/><path d="M4 7h24" stroke-width="2"/><path d="M10 11h3M19 11h3M10 15h3M19 15h3M10 19h3M19 19h3" /><path d="M14 29v-5h4v5" fill="#2445AE"/><path d="M11 4h10v3H11z" fill="#E2482F" stroke-width="1"/>'),
+  skyscraper: S('<path d="M11 29V9l5-6 5 6v20z" fill="#5AB0FF"/><path d="M5 29V15h6v14M21 29V13h6v16" fill="#9AA3B0"/><path d="M14 12h4M14 16h4M14 20h4M14 24h4" stroke="#fff"/><path d="M3 29h26"/>'),
+};
+const ART_MAP = {
+  classic: { b1: 'rock', b2: 'hills', s1: 'spring', s2: 'falls', s3: 'mountain', p1: 'market', p2: 'hills', p3: 'palace',
+    o1: 'grove', o2: 'cave', o3: 'crown', o4: 'tower', r1: 'boat', r2: 'mall', r3: 'elephant', r4: 'wheel',
+    y1: 'lake', y2: 'fountain', y3: 'rock', y4: 'flagrock', g1: 'stadium', g2: 'theatre', g3: 'canopy',
+    n1: 'skyline', n2: 'bridge', n3: 'island' },
+  lagos: { b1: 'salon', b2: 'food', s1: 'tv', s2: 'radio', s3: 'sax', p1: 'hospital', p2: 'laptop', p3: 'gradcap',
+    o1: 'market', o3: 'books', o4: 'dumbbell', r1: 'court', r2: 'cocktail', r4: 'canopy', y2: 'mall', y3: 'umbrella',
+    y4: 'rooftop', g1: 'disco', g2: 'dice', g3: 'golf', n1: 'hotel', n3: 'skyscraper' },
+};
+ART_MAP.mega = ART_MAP.classic;
+function propArt(boardKey, key) { const m = ART_MAP[boardKey] || ART_MAP.classic; return ART_ICONS[m[key]] || ''; }
+
+/* credit */
+function creditHTML(compact) {
+  return `<footer class="credit${compact ? ' compact' : ''}">Built by <b>Olasubomi Akanbi</b><span class="dot">·</span><a href="https://instagram.com/subomi.a_" target="_blank" rel="noopener">${ICONS.insta}@subomi.a_</a></footer>`;
+}
+
 /* ---------------- board geometry ---------------- */
 function tilePlace(i, k) {
   const C = C_UNITS, W = k + 2 * C;
@@ -1682,12 +1762,12 @@ function cornerHTML(t) {
   return '';
 }
 
-function tileHTML(t, k) {
+function tileHTML(t, k, boardKey) {
   const pl = tilePlace(t.i, k);
   const pos = `grid-row:${pl.r};grid-column:${pl.c}`;
   if (pl.side === 'corner') return `<div class="tile corner c-${t.type}${t.name.length > 9 ? ' long' : ''}" data-i="${t.i}" style="${pos}" role="button" tabindex="-1" aria-label="${esc(t.name)}">${cornerHTML(t)}</div>`;
   let inner;
-  if (t.type === 'prop') inner = `<div class="band" style="--gc:${GROUPS[t.group].color}"><div class="hs"></div></div><div class="t-name">${esc(t.name)}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
+  if (t.type === 'prop') inner = `<div class="band" style="--gc:${GROUPS[t.group].color}"><div class="hs"></div></div><div class="t-art">${propArt(boardKey, t.key)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
   else if (t.type === 'transport' || t.type === 'utility') inner = `<div class="t-ico">${tileIcon(t)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
   else if (t.type === 'tax') inner = `<div class="t-ico">${tileIcon(t)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">Pay ${fmt(t.amount)}</div>`;
   else if (t.type === 'rest') inner = `<div class="t-ico" style="flex:1;align-items:center">${tileIcon(t)}</div><div class="t-name" style="flex:none;padding-bottom:3px">${esc(t.name)}</div>`;
@@ -1700,7 +1780,7 @@ function boardHTML(key, withCenter) {
   const cols = `${C_UNITS}fr repeat(${k}, 1fr) ${C_UNITS}fr`;
   return `<div class="board" data-board="${key}" data-w="${W}">
     <div class="frame"></div>
-    <div class="grid" style="grid-template-columns:${cols};grid-template-rows:${cols}">${b.tiles.map(t => tileHTML(t, k)).join('')}</div>
+    <div class="grid" style="grid-template-columns:${cols};grid-template-rows:${cols}">${b.tiles.map(t => tileHTML(t, k, key)).join('')}</div>
     <div class="tokens" style="position:absolute;inset:3px">
       ${withCenter ? `<div class="center" style="left:calc(${p}% + 2px);top:calc(${p}% + 2px);right:calc(${p}% + 2px);bottom:calc(${p}% + 2px);pointer-events:auto"></div>` :
         `<div class="center" style="left:calc(${p}% + 2px);top:calc(${p}% + 2px);right:calc(${p}% + 2px);bottom:calc(${p}% + 2px)"><div class="c-logo">NAIJA<br><span>LANDLORD</span></div></div>`}
@@ -1802,6 +1882,7 @@ function showHome() {
       <div class="fact"><b>Trading</b><span>Swap properties, cash and get-out-of-Kirikiri cards with any player.</span></div>
       <div class="fact"><b>Bots</b><span>Eight seats. Add bots to play solo or fill a table.</span></div>
     </div>
+    ${creditHTML()}
   </section>`;
   mountBoard($('.preview-wrap .board'));
   const pb = $('.preview-wrap .board');
@@ -1899,6 +1980,7 @@ function renderLocalSetup() {
       </div>
       <div class="card" id="localSettings"><h3>Rules</h3>${settingsHTML(S.settings, true)}</div>
     </div>
+    ${creditHTML()}
   </section>`;
   bindSettings($('#localSettings'), () => S.settings, st => { S.settings = st; renderLocalSetup(); });
 }
@@ -1994,6 +2076,7 @@ function renderOnline() {
         <button class="btn primary big block" data-act="create-room" ${ok ? '' : 'disabled'}>Create room</button>
       </div>
     </div>
+    ${creditHTML()}
   </section>`;
   bindSettings($('#createSettings'), () => ui.createSettings, st => { ui.createSettings = st; renderOnline(); });
 }
@@ -2229,6 +2312,7 @@ function buildGameScreen(s) {
       </div>
       <div id="roomInfo"></div>
       <div class="plist" id="plist"></div>
+      ${creditHTML(true)}
     </aside>
     <main id="boardWrap">${boardHTML(s.settings.board, true)}</main>
     <aside class="pane" id="rightPane">
@@ -2694,7 +2778,8 @@ function openDeed(i) {
     } else {
       rows = `<tr><td>Own 1 utility</td><td>4× dice</td></tr><tr><td>Own 2 utilities</td><td>10× dice</td></tr>${board === 'mega' ? '<tr><td>Own 3 utilities</td><td>20× dice</td></tr>' : ''}`;
     }
-    body = `<div class="deed"><div class="dh" style="--gc:${gc}"><small>${t.type === 'prop' ? GROUPS[t.group].name + ' set' : t.type === 'transport' ? 'Transport' : 'Utility'}</small><h3>${esc(t.name)}</h3></div>
+    const pic = t.type === 'prop' ? propArt(board, t.key) : tileIcon(t);
+    body = `<div class="deed"><div class="dh" style="--gc:${gc}">${pic ? `<div class="dpic">${pic}</div>` : ''}<small>${t.type === 'prop' ? GROUPS[t.group].name + ' set' : t.type === 'transport' ? 'Transport' : 'Utility'}</small><h3>${esc(t.name)}</h3></div>
       <table>${rows}</table>
       <div class="df"><div>Price <b>${fmt(t.price)}</b>${t.house ? ` · Each house <b>${fmt(t.house)}</b>` : ''}</div><div>Mortgage value <b>${fmt(t.price / 2)}</b></div>
       <div>Owner: <b>${owner ? esc(owner.name) : 'Bank (for sale)'}</b>${pr && pr.mort ? ' · <b style="color:#a01c22">Mortgaged</b>' : ''}</div></div></div>`;
@@ -2759,6 +2844,7 @@ function renderLobby(s) {
         <div class="card" id="lobbySettings"><h3>Rules ${host ? '' : '<span class="muted small">(set by the host)</span>'}</h3>${settingsHTML(s.settings, host, true)}</div>
       </div>
     </div>
+    ${creditHTML()}
   </section>`;
   const ci = $('#chatIn'); if (ci) { ci.value = draft; if (hadFocus) { ci.focus(); ci.setSelectionRange(draft.length, draft.length); } }
   const cl = $('#chatList'); if (cl) cl.scrollTop = cl.scrollHeight;
