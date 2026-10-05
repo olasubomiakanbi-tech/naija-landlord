@@ -125,7 +125,12 @@ h1,h2,h3{text-wrap:balance; margin:0}
 /* ---------- game layout ---------- */
 #game{display:grid; grid-template-columns: 260px minmax(0,1fr) 350px; gap:16px; height:100%; padding-inline:16px; padding-block:12px}
 #game > *{min-width:0; min-height:0}
-.pane{display:flex; flex-direction:column; gap:12px; overflow:auto; scrollbar-width:thin}
+.scrollzone{display:contents}
+#leftPane{grid-column:1; grid-row:1} #boardWrap{grid-column:2; grid-row:1} #rightPane{grid-column:3; grid-row:1}
+.pane{display:flex; flex-direction:column; gap:12px; overflow:auto; scrollbar-width:thin; overscroll-behavior:contain}
+body.in-game{overflow:hidden}
+body.in-game #game{height:100svh; height:100dvh}
+.seg.lvl button{font-size:.8rem; padding:.35em .65em}
 .gbar{display:flex; align-items:center; gap:8px}
 .gbar .mini{font-family:var(--f-display); font-size:1rem; line-height:1}
 .gbar .mini span{background:var(--danfo); color:var(--black); padding:0 .2em}
@@ -375,16 +380,18 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .toast.err{background:#FFD6D7; color:#5a0f14}
 
 @media (max-width: 1180px){
-  #game{grid-template-columns:minmax(0,1fr) 330px; grid-template-rows:auto auto; height:auto}
-  #boardWrap{grid-column:1; grid-row:1 / span 2}
-  .board{width:min(100%, calc(100vh - 24px))}
+  #game{grid-template-columns:minmax(0,1fr) 330px; grid-template-rows:auto minmax(0,1fr)}
+  #boardWrap{grid-column:1; grid-row:1 / span 2; align-self:start}
+  #leftPane{grid-column:2; grid-row:1; max-height:45dvh} #rightPane{grid-column:2; grid-row:2}
+  .board{width:min(100%, calc(100dvh - 24px))}
 }
 @media (max-width: 860px){
-  #game{grid-template-columns:minmax(0,1fr)}
-  #boardWrap{grid-row:auto; order:1}
-  #leftPane{order:2} #rightPane{order:3}
-  .board{width:100%}
-  .pane{overflow:visible}
+  /* phones: the board stays pinned at the top; players, tabs and chat scroll underneath it */
+  body.in-game #game{display:flex; flex-direction:column; gap:12px; overflow:hidden}
+  #boardWrap{flex:none; order:1; padding-top:4px; width:100%; align-self:stretch}
+  .board{width:min(100%, calc(100dvh - 230px))}
+  #leftPane, #rightPane{flex:none; overflow:visible}
+  body.in-game #game > .scrollzone{order:2; flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:12px; padding-bottom:90px}
   .plist{grid-template-columns:repeat(auto-fill, minmax(165px, 1fr))}
   .pl{grid-template-columns:auto minmax(0,1fr)}
   .pl .cash{grid-column:2; grid-row:2}
@@ -919,7 +926,9 @@ const ACTIONS = {
     let token = TOKENS.some(t => t.e === a.token) && !taken.includes(a.token) ? a.token : (TOKENS.find(t => !taken.includes(t.e)) || TOKENS[0]).e;
     if (ex) { ex.name = name; ex.token = token; return; }
     if (s.players.length >= s.settings.maxPlayers) return 'This room is full.';
-    s.players.push(newPlayer(s, a.by, name, token, !!a.bot));
+    const np = newPlayer(s, a.by, name, token, !!a.bot);
+    if (a.bot) np.level = [1, 2, 3].includes(+a.level) ? +a.level : 2;
+    s.players.push(np);
     s.playerIds = s.players.map(p => p.id);
     log(s, `${name} joined.`);
   },
@@ -932,8 +941,16 @@ const ACTIONS = {
     const taken = s.players.map(p => p.token);
     const tok = (TOKENS.find(t => !taken.includes(t.e)) || TOKENS[0]).e;
     const id = 'bot_' + Math.random().toString(36).slice(2, 8);
-    s.players.push(newPlayer(s, id, nm + ' (bot)', tok, true));
+    const np = newPlayer(s, id, nm + ' (bot)', tok, true);
+    np.level = [1, 2, 3].includes(+a.level) ? +a.level : 2;
+    s.players.push(np);
     s.playerIds = s.players.map(p => p.id);
+  },
+  botLevel(s, a) {
+    if (s.mode !== 'local' && a.actor !== s.hostId) return 'Only the host can change bots.';
+    const p = P(s, a.target);
+    if (!p || !p.bot || ![1, 2, 3].includes(+a.level)) return 'Pick a bot level.';
+    p.level = +a.level;
   },
   removePlayer(s, a) {
     if (s.status !== 'lobby') return 'Game already started.';
@@ -1283,87 +1300,190 @@ function reduce(s0, a) {
   return { state: s };
 }
 
-/* ---------- 7. BOTS ---------- */
+/* ---------- 7. BOTS ----------
+   Three levels:
+   1 Learner        buys on impulse, bids low, accepts fair trades, rarely builds.
+   2 Hustler        sensible buyer and builder, wants a good premium in trades.
+   3 Business Tycoon  values sets and blocks rivals, keeps a cash buffer sized to the danger on the board,
+                    builds to three houses fast, bids hard at auction and almost never hands a rival a set. */
+const BOT_LEVELS = { 1: 'Learner', 2: 'Hustler', 3: 'Business Tycoon' };
+const lvl = p => (p && p.level) || 2;
+
 function completesGroup(s, pid, i) {
   const t = T(s, i);
   if (t.type !== 'prop') return false;
   return groupTiles(s, t.group).every(g => g.i === i || (s.props[g.i] && s.props[g.i].owner === pid));
 }
+/* would owning tile i give player `rival` a full set? */
+function completesFor(s, rival, i) { return completesGroup(s, rival, i); }
+function rivalsWanting(s, me, i) {
+  return active(s).filter(o => o.id !== me && completesFor(s, o.id, i));
+}
+/* the worst rent this player could plausibly land on right now */
+function dangerLevel(s, pid) {
+  let worst = 0;
+  B(s).tiles.forEach(t => {
+    const pr = s.props[t.i];
+    if (!pr || pr.owner === pid || pr.mort) return;
+    worst = Math.max(worst, rentFor(s, t.i, 7));
+  });
+  return worst;
+}
+function reserveFor(s, p) {
+  const L = lvl(p);
+  if (L === 1) return 40;
+  if (L === 2) return 80;
+  const d = dangerLevel(s, p.id);
+  return Math.min(500, Math.max(150, Math.round(d * 0.7)));
+}
+/* how much a property is worth to `pid` */
+function worthTo(s, pid, i, level) {
+  const t = T(s, i);
+  if (!t || !isBuyable(t)) return 0;
+  let v = t.price;
+  if (t.type === 'prop') {
+    const g = groupTiles(s, t.group);
+    const mine = g.filter(x => x.i !== i && s.props[x.i] && s.props[x.i].owner === pid).length;
+    v *= 1 + mine * (level === 3 ? 0.45 : 0.3);
+    if (completesGroup(s, pid, i)) v *= level === 3 ? 2.4 : level === 2 ? 1.7 : 1.2;
+    const pr = s.props[i];
+    if (pr && pr.houses) v += pr.houses * t.house * (level === 3 ? 1 : 0.6);
+    if (pr && pr.mort) v -= t.price * 0.55;
+  } else if (t.type === 'transport') {
+    const n = countOwned(s, pid, 'transport');
+    v *= 1 + n * (level === 3 ? 0.35 : 0.2);
+    if (t.air && level === 3 && airports(s).every(a => a.i === i || (s.props[a.i] && s.props[a.i].owner === pid))) v *= 1.5;
+  } else {
+    v *= countOwned(s, pid, 'utility') ? 1.3 : 1;
+  }
+  return v;
+}
+/* the cost to `pid` of handing property i to `rival` */
+function lossTo(s, pid, rival, i, level) {
+  const t = T(s, i);
+  let v = worthTo(s, pid, i, level);
+  if (t.type === 'prop' && completesFor(s, rival, i)) v = Math.max(v, t.price * (level === 3 ? 4.5 : level === 2 ? 2.6 : 1.3));
+  if (t.type === 'prop' && level >= 2 && ownsGroup(s, pid, t.group)) v *= 3;   // breaking my own set
+  return v;
+}
+
 function botRaise(s, p) {
   const mine = ownedBy(s, p.id);
+  // mortgage single properties before touching sets or houses
+  const singles = mine.filter(t => !mortgageCheck(s, p.id, t.i) && !(t.type === 'prop' && ownsGroup(s, p.id, t.group)))
+    .sort((a, b) => worthTo(s, p.id, a.i, lvl(p)) - worthTo(s, p.id, b.i, lvl(p)));
+  if (singles.length) return { type: 'mortgage', by: p.id, i: singles[0].i };
   for (const t of mine.slice().sort((a, b) => (b.house || 0) - (a.house || 0))) if (!sellCheck(s, p.id, t.i)) return { type: 'sell', by: p.id, i: t.i };
-  const m = mine.filter(t => !mortgageCheck(s, p.id, t.i)).sort((a, b) => (ownsGroup(s, p.id, a.group) ? 1 : 0) - (ownsGroup(s, p.id, b.group) ? 1 : 0) || a.price - b.price);
+  const m = mine.filter(t => !mortgageCheck(s, p.id, t.i)).sort((a, b) => a.price - b.price);
   if (m.length) return { type: 'mortgage', by: p.id, i: m[0].i };
   return null;
 }
 function botBuild(s, p) {
-  const opts = ownedBy(s, p.id).filter(t => t.type === 'prop' && !buildCheck(s, p.id, t.i) && p.cash - t.house >= 150 + t.house);
-  opts.sort((a, b) => s.props[a.i].houses - s.props[b.i].houses || b.price - a.price);
-  return opts.length ? { type: 'build', by: p.id, i: opts[0].i } : null;
+  const L = lvl(p);
+  if (L === 1 && Math.random() < 0.6) return null;
+  const reserve = reserveFor(s, p);
+  const opts = ownedBy(s, p.id).filter(t => t.type === 'prop' && !buildCheck(s, p.id, t.i) && p.cash - t.house >= reserve);
+  if (!opts.length) return null;
+  if (L === 3) {
+    // three houses is where rent jumps; fill the set with the best rent gain per naira first
+    opts.sort((a, b) => {
+      const ha = s.props[a.i].houses, hb = s.props[b.i].houses;
+      const ga = (a.rent[ha + 1] - a.rent[ha]) / a.house + (ha < 3 ? 1 : 0), gb = (b.rent[hb + 1] - b.rent[hb]) / b.house + (hb < 3 ? 1 : 0);
+      return gb - ga;
+    });
+  } else opts.sort((a, b) => s.props[a.i].houses - s.props[b.i].houses || b.price - a.price);
+  return { type: 'build', by: p.id, i: opts[0].i };
 }
 function botUnmortgage(s, p) {
-  const m = ownedBy(s, p.id).filter(t => !unmortgageCheck(s, p.id, t.i) && p.cash - unmortgageCost(t) > 400);
+  const extra = lvl(p) === 3 ? reserveFor(s, p) + 150 : 400;
+  const m = ownedBy(s, p.id).filter(t => !unmortgageCheck(s, p.id, t.i) && p.cash - unmortgageCost(t) > extra)
+    .sort((a, b) => (ownsGroup(s, p.id, b.group) ? 1 : 0) - (ownsGroup(s, p.id, a.group) ? 1 : 0));
   return m.length ? { type: 'unmortgage', by: p.id, i: m[0].i } : null;
 }
+
+/* trades: what the bot gives up versus what it gets, at its level */
 function botTradeGap(s, p, tr) {
-  const asker = P(s, tr.from);
-  const val = (off, giving) => off.cash + off.cards * 50 + off.props.reduce((a, i) => a + propValue(s, i) * (giving ? (completesGroup(s, asker.id, i) ? 1.6 : 1) : (completesGroup(s, p.id, i) ? 1.8 : 1)), 0);
+  const L = lvl(p), asker = P(s, tr.from);
   const giving = tr.get, getting = tr.give;
-  for (const i of giving.props) { const t = T(s, i); if (t.type === 'prop' && ownsGroup(s, p.id, t.group)) return Infinity; }
-  if (giving.cash > p.cash - 100) return Infinity;
-  return val(giving, true) * 1.15 + 10 - val(getting, false);
+  if (giving.cash > p.cash - reserveFor(s, p)) return Infinity;
+  for (const i of giving.props) {
+    const t = T(s, i);
+    if (L === 3 && t.type === 'prop' && completesFor(s, asker.id, i)) {
+      // a tycoon only hands over a set if it completes one of its own in the same deal
+      if (!getting.props.some(j => completesGroup(s, p.id, j)) && getting.cash < t.price * 5) return Infinity;
+    }
+  }
+  const give = giving.cash + giving.cards * 60 + giving.props.reduce((a, i) => a + lossTo(s, p.id, asker.id, i, L), 0);
+  const get = getting.cash + getting.cards * (L === 3 ? 40 : 60) + getting.props.reduce((a, i) => a + worthTo(s, p.id, i, L) - (s.props[i] && s.props[i].mort ? T(s, i).price * 0.1 : 0), 0);
+  const margin = L === 3 ? 1.5 : L === 2 ? 1.28 : 1.05;
+  return give * margin + (L === 3 ? 40 : 15) - get;
 }
 function botTradeOk(s, p, tr) { return botTradeGap(s, p, tr) <= 0; }
-/* a bot that dislikes an offer asks for more cash instead, once per offer chain */
 function botCounter(s, p, tr) {
-  if (tr.counterOf) return null;
+  if (tr.counterOf && lvl(p) < 3) return null;
+  if (tr.counterOf && tr.counterOf.startsWith && s.trades.length > 10) return null;
   const gap = botTradeGap(s, p, tr);
-  if (!isFinite(gap) || gap <= 0) return null;
+  if (!isFinite(gap) || gap <= 0 || lvl(p) === 1) return null;
   const asker = P(s, tr.from);
   const extra = Math.ceil(gap / 10) * 10;
-  if (asker.cash < tr.give.cash + extra || extra > 600) return null;
+  if (asker.cash < tr.give.cash + extra || extra > (lvl(p) === 3 ? 1200 : 600)) return null;
   return { type: 'tradePropose', by: p.id, to: asker.id, counterOf: tr.id,
     give: { cash: tr.get.cash, props: tr.get.props.slice(), cards: tr.get.cards },
     get: { cash: tr.give.cash + extra, props: tr.give.props.slice(), cards: tr.give.cards } };
 }
 function botProposeTrade(s, p) {
+  const L = lvl(p);
+  if (L === 1) return null;
   if (s.trades.some(t => t.from === p.id)) return null;
-  if ((s.turnCount || 0) - (p.lastAsk || -99) < s.players.length * 3) return null;
+  if ((s.turnCount || 0) - (p.lastAsk || -99) < s.players.length * (L === 3 ? 2 : 3)) return null;
   for (const g of Object.keys(GROUPS)) {
     const tiles = groupTiles(s, g);
     if (!tiles.length) continue;
-    const mine = tiles.filter(t => s.props[t.i] && s.props[t.i].owner === p.id);
     const missing = tiles.filter(t => !(s.props[t.i] && s.props[t.i].owner === p.id));
-    if (mine.length < tiles.length - 1 || missing.length !== 1) continue;
+    if (missing.length !== 1) continue;
     const t = missing[0], pr = s.props[t.i];
-    if (!pr) continue;
+    if (!pr || groupHasHouses(s, g)) continue;
     const o = P(s, pr.owner);
     if (!o || o.bankrupt || o.id === p.id) continue;
-    if (groupHasHouses(s, g)) continue;
-    const offer = Math.round(t.price * 2 / 10) * 10;
-    if (p.cash - offer < 150) continue;
+    if (L === 3) {
+      // offer a swap: something they need, that does not hand them a set I can't match
+      const theirNeed = ownedBy(s, p.id).find(x => x.type === 'prop' && completesFor(s, o.id, x.i) && !groupHasHouses(s, x.group)
+        && (GROUPS[x.group].house < GROUPS[g].house || x.price < t.price));
+      if (theirNeed) return { type: 'tradePropose', by: p.id, to: o.id, give: { cash: 0, props: [theirNeed.i], cards: 0 }, get: { cash: 0, props: [t.i], cards: 0 } };
+    }
+    const offer = Math.round(t.price * (L === 3 ? 1.6 : 2) / 10) * 10;
+    if (p.cash - offer < reserveFor(s, p)) continue;
     return { type: 'tradePropose', by: p.id, to: o.id, give: { cash: offer, props: [], cards: 0 }, get: { cash: 0, props: [t.i], cards: 0 } };
   }
+  return null;
+}
+function botBid(s, p) {
+  const a = s.auction, L = lvl(p);
+  if (a.by === p.id) return null;
+  const t = T(s, a.i);
+  let cap;
+  if (L === 1) cap = t.price * (0.6 + Math.random() * 0.3);
+  else {
+    cap = worthTo(s, p.id, a.i, L) * (L === 3 ? 1.05 : 0.95);
+    // stop a rival completing a set
+    if (rivalsWanting(s, p.id, a.i).length) cap = Math.max(cap, t.price * (L === 3 ? 1.8 : 1.25));
+  }
+  cap = Math.min(cap, p.cash - reserveFor(s, p));
+  const step = L === 3 ? (a.high < 200 ? 10 : 20) : a.high < 100 ? 10 : a.high < 400 ? 20 : 50;
+  const opening = a.high === 0 ? Math.max(10, Math.round(t.price * (L === 3 ? 0.5 : 0.35) / 10) * 10) : a.high + step;
+  if (opening <= cap) return { type: 'bid', by: p.id, amount: opening };
   return null;
 }
 function botAction(s, bid) {
   const p = P(s, bid);
   if (!p || p.bankrupt || s.status !== 'playing') return null;
+  const L = lvl(p);
   const tr = s.trades.find(t => t.to === bid);
   if (tr) {
     if (botTradeOk(s, p, tr)) return { type: 'tradeAccept', by: bid, id: tr.id };
     return botCounter(s, p, tr) || { type: 'tradeDecline', by: bid, id: tr.id };
   }
-  if (s.auction) {
-    const a = s.auction;
-    if (a.by === bid) return null;
-    const t = T(s, a.i);
-    const want = t.price * (completesGroup(s, bid, a.i) ? 1.7 : (p.cash > 900 ? 1.15 : 0.9));
-    const step = a.high < 100 ? 10 : a.high < 400 ? 20 : 50;
-    const next = Math.max(a.high + step, a.high === 0 ? Math.round(t.price * 0.4 / 10) * 10 || 10 : 0);
-    if (next <= want && next <= p.cash - 60) return { type: 'bid', by: bid, amount: next };
-    return null;
-  }
+  if (s.auction) return botBid(s, p);
   const c = cur(s);
   if (!c || c.id !== bid) return null;
   if (p.cash < 0) return botRaise(s, p) || { type: 'bankrupt', by: bid };
@@ -1371,25 +1491,35 @@ function botAction(s, bid) {
     if (p.inJail) {
       if (p.jailCards.length) return { type: 'useJailCard', by: bid };
       const unowned = B(s).tiles.filter(t => isBuyable(t) && !s.props[t.i]).length;
-      if (p.cash >= 300 && unowned > 6) return { type: 'payJail', by: bid };
+      const late = unowned <= 4 && dangerLevel(s, bid) > 300;
+      if (L === 3 && late) return { type: 'roll', by: bid };              // jail is a safe place late in the game
+      if (p.cash >= (L === 1 ? 60 : 300) && unowned > 4) return { type: 'payJail', by: bid };
     }
     return botBuild(s, p) || botProposeTrade(s, p) || { type: 'roll', by: bid };
   }
   if (s.phase === 'buy' && s.pending) {
     const t = T(s, s.pending.i);
-    const reserve = completesGroup(s, bid, t.i) ? 0 : 100;
-    return { type: p.cash - t.price >= reserve ? 'buy' : 'decline', by: bid };
+    let buy;
+    if (L === 1) buy = p.cash - t.price >= 30 && Math.random() < 0.85;
+    else if (L === 2) buy = p.cash - t.price >= (completesGroup(s, bid, t.i) || rivalsWanting(s, bid, t.i).length ? 0 : 60);
+    else {
+      const key = completesGroup(s, bid, t.i) || rivalsWanting(s, bid, t.i).length;
+      buy = p.cash - t.price >= (key ? 0 : Math.min(reserveFor(s, p), 200));
+      // a tycoon leaves cheap junk for the auction when it can likely get it for less
+      if (!key && s.settings.auction && t.type === 'utility' && p.cash < 600) buy = false;
+    }
+    return { type: buy ? 'buy' : 'decline', by: bid };
   }
-  if (s.flight && s.flight.pid === bid && p.cash > 400) {
+  if (s.flight && s.flight.pid === bid && p.cash > 400 && L >= 2) {
     const target = B(s).tiles.find(t => t.type === 'prop' && !s.props[t.i] && completesGroup(s, bid, t.i) && t.price <= p.cash - 150)
       || B(s).tiles.find(t => t.type === 'prop' && !s.props[t.i] && t.price <= p.cash - 300);
     if (target) return { type: 'fly', by: bid, to: target.i };
   }
-  if (s.phase === 'done') return botBuild(s, p) || botUnmortgage(s, p) || { type: 'endTurn', by: bid };
+  if (s.phase === 'done') return botBuild(s, p) || botUnmortgage(s, p) || (L === 3 ? botProposeTrade(s, p) : null) || { type: 'endTurn', by: bid };
   return null;
 }
 
-if (typeof module !== 'undefined') module.exports = { reduce, newGame, botAction, buildBoard, fmt, BOARDS, cur, P, T, rentFor, ownsAllAirports };
+if (typeof module !== 'undefined') module.exports = { reduce, newGame, botAction, buildBoard, fmt, BOARDS, cur, P, T, rentFor, ownsAllAirports, BOT_LEVELS };
 
 /* =====================================================================
    NAIJA LANDLORD — interface, animation, local + online play
@@ -1927,7 +2057,7 @@ function setDice(root, vals, spins, ms) {
 const app = () => $('#app');
 
 function showHome() {
-  ui.screen = 'home'; window.scrollTo(0, 0);
+  ui.screen = 'home'; window.scrollTo(0, 0); document.body.classList.remove('in-game');
   const saved = LS.get('nl-local');
   const canResume = saved && saved.status === 'playing';
   const lastRoom = LS.get('nl-last-room');
@@ -2025,14 +2155,19 @@ function tokenPicker(current, taken, attr) {
 }
 
 /* ---------------- local setup ---------------- */
+function levelSeg(cur, attr) {
+  return `<div class="seg lvl" role="group" aria-label="Bot level">${[1, 2, 3].map(l => `<button type="button" ${attr}="${l}" class="${(cur || 2) === l ? 'on' : ''}" title="${BOT_TIPS[l]}">${BOT_LEVELS[l]}</button>`).join('')}</div>`;
+}
+const BOT_TIPS = { 1: 'Easy. Buys on impulse and accepts fair trades.', 2: 'Medium. Sensible buyer, wants a good deal in trades.', 3: 'Hard. Plays for sets, blocks rivals and bargains hard.' };
+
 function showLocalSetup() {
-  ui.screen = 'setup'; window.scrollTo(0, 0);
+  ui.screen = 'setup'; window.scrollTo(0, 0); document.body.classList.remove('in-game');
   if (!ui.setup) ui.setup = {
     settings: Object.assign({}, DEFAULT_SETTINGS),
     players: [
       { name: ui.prefs.name || 'Player 1', token: ui.prefs.token || '🛺', bot: false },
       { name: 'Player 2', token: '🚌', bot: false },
-      { name: 'Chidi', token: '🥘', bot: true },
+      { name: 'Chidi', token: '🥘', bot: true, level: 2 },
     ],
   };
   renderLocalSetup();
@@ -2055,6 +2190,7 @@ function renderLocalSetup() {
             <div class="seg"><button data-pbot="${i}" data-v="0" class="${!p.bot ? 'on' : ''}">Human</button><button data-pbot="${i}" data-v="1" class="${p.bot ? 'on' : ''}">Bot</button></div>
             <button class="btn ghost small" data-pdel="${i}" ${S.players.length <= 2 ? 'disabled' : ''} aria-label="Remove player">✕</button>
             <div style="grid-column:1/-1">${tokenPicker(p.token, taken, 'data-ptok-' + i)}</div>
+            ${p.bot ? `<div style="grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="lbl">Bot level</span>${levelSeg(p.level, 'data-plvl-' + i)}</div>` : ''}
           </div>`).join('')}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2075,6 +2211,8 @@ function localSetupClick(e) {
   for (const attr of t.getAttributeNames()) {
     const m = attr.match(/^data-ptok-(\d+)$/);
     if (m) { S.players[+m[1]].token = t.getAttribute(attr); renderLocalSetup(); return; }
+    const lv = attr.match(/^data-plvl-(\d+)$/);
+    if (lv) { S.players[+lv[1]].level = +t.getAttribute(attr); renderLocalSetup(); return; }
   }
   if (t.dataset.pbot != null) { const p = S.players[+t.dataset.pbot]; p.bot = t.dataset.v === '1'; if (p.bot && /^Player \d/.test(p.name)) p.name = BOT_NAMES[+t.dataset.pbot % BOT_NAMES.length]; renderLocalSetup(); }
   if (t.dataset.pdel != null) { S.players.splice(+t.dataset.pdel, 1); renderLocalSetup(); }
@@ -2084,13 +2222,13 @@ function addLocalPlayer(bot) {
   const tok = (TOKENS.find(t => !taken.includes(t.e)) || TOKENS[0]).e;
   const usedNames = S.players.map(p => p.name);
   const name = bot ? (BOT_NAMES.find(n => !usedNames.includes(n)) || 'Bot') : 'Player ' + (S.players.length + 1);
-  S.players.push({ name, token: tok, bot }); renderLocalSetup();
+  S.players.push({ name, token: tok, bot, level: 2 }); renderLocalSetup();
 }
 function startLocal() {
   const S = ui.setup;
   $$('[data-pname]').forEach(inp => { S.players[+inp.dataset.pname].name = inp.value.trim() || 'Player'; });
   let s = newGame({ mode: 'local', settings: Object.assign({}, S.settings, { maxPlayers: 8 }) });
-  S.players.forEach((p, i) => { const r = reduce(s, { type: 'join', by: 'p' + (i + 1), name: p.bot ? p.name.replace(/ \(bot\)$/, '') + ' (bot)' : p.name, token: p.token, bot: p.bot }); if (r.state) s = r.state; });
+  S.players.forEach((p, i) => { const r = reduce(s, { type: 'join', by: 'p' + (i + 1), name: p.bot ? p.name.replace(/ \(bot\)$/, '') + ' (bot)' : p.name, token: p.token, bot: p.bot, level: p.level || 2 }); if (r.state) s = r.state; });
   const r = reduce(s, { type: 'start' });
   if (r.error) return toast(r.error, true);
   if (!S.players[0].bot) { ui.prefs.name = S.players[0].name; ui.prefs.token = S.players[0].token; savePrefs(); }
@@ -2127,7 +2265,7 @@ function lobbyNote(code) { return `Share the code <b>${esc(code)}</b>. Friends o
 function hostBanner() { return ''; }
 
 function showOnline() {
-  ui.screen = 'online'; window.scrollTo(0, 0);
+  ui.screen = 'online'; window.scrollTo(0, 0); document.body.classList.remove('in-game');
   if (!ui.createSettings) ui.createSettings = Object.assign({}, DEFAULT_SETTINGS);
   renderOnline();
   if (onlineOK()) loadRooms();
@@ -2430,9 +2568,11 @@ async function animateMove(s, m) {
 
 /* ---------------- game screen ---------------- */
 function buildGameScreen(s) {
-  ui.screen = 'game'; window.scrollTo(0, 0);
+  ui.screen = 'game'; window.scrollTo(0, 0); document.body.classList.add('in-game');
   app().innerHTML = `
   <section id="game" class="screen" data-board="${s.settings.board}">
+    <main id="boardWrap">${boardHTML(s.settings.board, true)}</main>
+    <div class="scrollzone">
     <aside class="pane" id="leftPane">
       <div class="gbar">
         <div class="mini">NAIJA <span>LANDLORD</span></div><span class="sp"></span>
@@ -2443,12 +2583,12 @@ function buildGameScreen(s) {
       <div class="plist" id="plist"></div>
       ${creditHTML(true)}
     </aside>
-    <main id="boardWrap">${boardHTML(s.settings.board, true)}</main>
     <aside class="pane" id="rightPane">
       <div class="tabs" role="tablist" id="tabs"></div>
       <div class="tabbody" id="tabbody"></div>
       ${ui.mode === 'online' ? chatHTML(s) : ''}
     </aside>
+    </div>
   </section>`;
   const board = $('#boardWrap .board');
   mountBoard(board);
@@ -2756,7 +2896,7 @@ function renderPlayers(s, holdCash) {
     return `<div class="pl ${p.id === curId && s.status === 'playing' ? 'turn' : ''} ${p.bankrupt ? 'out' : ''}" data-pid="${p.id}">
       <div class="avatar" style="--pc:${p.color}">${p.token}</div>
       <div style="min-width:0"><div class="nm">${esc(p.name)}</div>
-        <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? `<span class="chip r">${esc(J())}</span>` : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${others}</div></div>
+        <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? `<span class="chip r">${esc(J())}</span>` : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${p.bot && !p.bankrupt ? `<span class="chip ${p.level === 3 ? 'y' : ''}">${BOT_LEVELS[p.level || 2]}</span>` : ''}${others}</div></div>
       <div class="cash ${p.cash < 0 ? 'neg' : ''}">${fmt(p.cash)}</div>
       ${sets ? `<div class="sets">${sets}</div>` : ''}${kick}
     </div>`;
@@ -3029,6 +3169,7 @@ function showWinner(s) {
 
 /* ---------------- lobby (online) ---------------- */
 function renderLobby(s) {
+  document.body.classList.remove('in-game');
   const typing = $('#chatIn'), draft = typing ? typing.value : '', hadFocus = typing && document.activeElement === typing;
   if (ui.screen !== 'lobby') window.scrollTo(0, 0);
   ui.screen = 'lobby';
@@ -3044,9 +3185,10 @@ function renderLobby(s) {
       <div class="card">
         <h3>Players <span class="muted small">(${s.players.length} of ${s.settings.maxPlayers})</span></h3>
         <div style="display:grid;gap:8px">${s.players.map(p => `
-          <div class="room"><div class="avatar" style="--pc:${p.color}">${p.token}</div><div class="grow"><b>${esc(p.name)}</b> ${p.id === s.hostId ? '<span class="chip">Host</span>' : ''}${p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.bot ? '<span class="chip">Bot</span>' : ''}</div>
+          <div class="room"><div class="avatar" style="--pc:${p.color}">${p.token}</div><div class="grow"><b>${esc(p.name)}</b> ${p.id === s.hostId ? '<span class="chip">Host</span>' : ''}${p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.bot ? `<span class="chip ${p.level === 3 ? 'y' : ''}">${BOT_LEVELS[p.level || 2]} bot</span>` : ''}
+            ${p.bot && host ? `<div style="margin-top:6px">${levelSeg(p.level, 'data-blvl-' + p.id)}</div>` : ''}</div>
           ${host && p.id !== ui.me ? `<button class="btn ghost small" data-remove="${p.id}">Remove</button>` : ''}</div>`).join('')}</div>
-        ${host ? `<button class="btn small" data-act="addBot" ${s.players.length >= s.settings.maxPlayers ? 'disabled' : ''}>+ Add bot</button>` : ''}
+        ${host ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="lbl">Add a bot</span>${[1, 2, 3].map(l => `<button class="btn small ${l === 3 ? 'primary' : ''}" data-addbot="${l}" title="${BOT_TIPS[l]}" ${s.players.length >= s.settings.maxPlayers ? 'disabled' : ''}>+ ${BOT_LEVELS[l]}</button>`).join('')}</div>` : ''}
         ${inRoom && mine ? `<div class="field"><span class="lbl">Your token</span>${tokenPicker(mine.token, taken, 'data-lobtok')}</div>` : ''}
         ${hostBanner()}<p class="note">${lobbyNote(s.code)}</p>
       </div>
@@ -3121,6 +3263,11 @@ document.addEventListener('click', e => {
   if (el.dataset.trade) { dispatch({ type: el.dataset.trade, by: el.dataset.by, id: el.dataset.id }); return; }
   if (el.dataset.join) { joinRoom(el.dataset.join); return; }
   if (el.dataset.watch) { watchRoom(el.dataset.watch); return; }
+  if (el.dataset.addbot) { dispatch({ type: 'addBot', by: ui.me, level: +el.dataset.addbot }); return; }
+  for (const attr of el.getAttributeNames()) {
+    const m = attr.match(/^data-blvl-(.+)$/);
+    if (m) { dispatch({ type: 'botLevel', by: ui.me, target: m[1], level: +el.getAttribute(attr) }); return; }
+  }
   if (el.dataset.counter) {
     const tr = s && s.trades.find(t => t.id === el.dataset.counter); if (!tr) return;
     const cp = o => ({ cash: o.cash, props: o.props.slice(), cards: o.cards });
@@ -3159,7 +3306,7 @@ document.addEventListener('click', e => {
       dispatch({ type: act, by: cur(s).id }); break;
     case 'rematch':
       closeModal();
-      if (ui.mode === 'local') { ui.setup = { settings: Object.assign({}, s.settings), players: s.players.map(p => ({ name: p.name.replace(/ \(bot\)$/, ''), token: p.token, bot: p.bot })) }; LS.del('nl-local'); showLocalSetup(); }
+      if (ui.mode === 'local') { ui.setup = { settings: Object.assign({}, s.settings), players: s.players.map(p => ({ name: p.name.replace(/ \(bot\)$/, ''), token: p.token, bot: p.bot, level: p.level || 2 })) }; LS.del('nl-local'); showLocalSetup(); }
       else dispatch({ type: 'rematch', by: ui.me });
       break;
     case 'leave':
