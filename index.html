@@ -105,7 +105,7 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .topbar h1{font-family:var(--f-display); font-weight:400; font-size:clamp(1.4rem, 3.5vw, 2rem)}
 .topbar .sp{flex:1}
 .cols{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:20px; align-items:start}
-.card{background:var(--ink-2); border:1.5px solid var(--line); border-radius:16px; padding:20px; display:grid; gap:14px; min-width:0}
+.card{background:var(--ink-2); border:1.5px solid var(--line); border-radius:16px; padding:20px; display:grid; grid-template-columns:minmax(0,1fr); gap:14px; min-width:0}
 .card h3{font-size:1.05rem}
 .prow{display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; gap:10px; align-items:center; padding:10px; background:var(--ink); border-radius:12px; border:1.5px solid var(--line)}
 .tok-pick{display:flex; gap:4px; flex-wrap:wrap}
@@ -117,7 +117,7 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .avatar{width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-size:20px; background:var(--tile); border:3px solid var(--pc, var(--danfo)); flex:none}
 .code{font-family:var(--f-display); font-size:clamp(2rem, 6vw, 3rem); letter-spacing:.12em; color:var(--danfo)}
 .rooms{display:grid; gap:8px}
-.room{display:flex; align-items:center; gap:12px; padding:10px 12px; background:var(--ink); border:1.5px solid var(--line); border-radius:12px}
+.room{display:flex; align-items:center; gap:12px; min-width:0; padding:10px 12px; background:var(--ink); border:1.5px solid var(--line); border-radius:12px}
 .room .grow{flex:1; min-width:0}
 .muted{color:var(--muted)} .small{font-size:.85rem}
 .note{background:var(--ink); border:1.5px dashed var(--line); border-radius:12px; padding:12px 14px; color:var(--muted); font-size:.9rem}
@@ -146,7 +146,7 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .pl .meta{display:flex; gap:4px; flex-wrap:wrap; margin-top:3px}
 .sets{display:flex; gap:3px; flex-wrap:wrap; grid-column:1/-1}
 .sets i{width:12px; height:8px; border-radius:2px; display:block; opacity:.95}
-.pl .kick{position:absolute; right:6px; bottom:6px}
+.pl .kick{grid-column:1/-1; justify-self:end; margin-top:-4px}
 
 /* ---------- board ---------- */
 .board{position:relative; aspect-ratio:1/1; width:min(100%, calc(100vh - 24px)); max-width:100%; container-type:inline-size; user-select:none; -webkit-user-select:none}
@@ -270,6 +270,14 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .chat{display:grid; gap:6px; max-height:220px; overflow:auto; font-size:.9rem}
 .chat b{color:var(--danfo)}
 .chatform{display:flex; gap:6px}
+.chatcard{padding:14px; gap:10px}
+.chatcard .chat{max-height:240px; min-height:90px; background:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:8px 10px; display:grid; gap:4px; align-content:start; overflow-wrap:anywhere}
+.msg{font-size:.9rem; line-height:1.35}
+.msg.mine{opacity:.85}
+.quick{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px}
+.quick::-webkit-scrollbar{display:none}
+.qchip{flex:none; border:1.5px solid var(--line); background:var(--ink-3); color:var(--fg); border-radius:99px; padding:.3em .75em; font-size:.8rem; font-weight:700; cursor:pointer; white-space:nowrap}
+.qchip:hover{border-color:var(--danfo)}
 .trade{display:grid; gap:10px}
 .tcols{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px}
 .tcol{background:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:10px; display:grid; gap:6px; align-content:start; min-width:0}
@@ -482,6 +490,7 @@ const DEFAULT_SETTINGS = {
   mortgage: true,
   evenBuild: true,
   randomOrder: true,
+  public: true,          // online: listed in Open rooms for anyone to join
 };
 
 /* ---------- 3. HELPERS ---------- */
@@ -1403,7 +1412,7 @@ function showHome() {
 }
 
 /* ---------------- settings form (shared) ---------------- */
-function settingsHTML(st, editable) {
+function settingsHTML(st, editable, online) {
   const dis = editable ? '' : 'disabled';
   const tg = (key, title, desc) => `<div class="toggle"><div><b>${title}</b><small>${desc}</small></div><label class="switch"><input type="checkbox" data-set="${key}" ${st[key] ? 'checked' : ''} ${dis} aria-label="${title}"><span></span></label></div>`;
   return `
@@ -1414,6 +1423,7 @@ function settingsHTML(st, editable) {
     <div class="field"><span class="lbl">Max players</span>
       <div class="seg" role="group" aria-label="Max players">${[2, 3, 4, 5, 6, 7, 8].map(v => `<button data-max="${v}" class="${st.maxPlayers === v ? 'on' : ''}" ${dis}>${v}</button>`).join('')}</div></div>
     <div>
+      ${online ? tg('public', 'Public room', 'Anyone in the world can find this room under Open rooms and join. Turn off to let people in by code only.') : ''}
       ${tg('doubleRent', 'Double rent on full sets', 'Owning a whole colour set doubles its base rent.')}
       ${tg('vacationCash', 'Owambe pot', 'Taxes and fines pile up at Owambe. Land there to collect it all.')}
       ${tg('auction', 'Auctions', 'If a player passes on a property, everyone can bid for it.')}
@@ -1560,19 +1570,23 @@ function renderOnline() {
     <div class="topbar"><button class="btn ghost small" data-act="home">← Back</button><h1>Play online</h1></div>
     ${msg ? `<div class="note">${esc(msg)}</div>` : ''}
     <div class="cols">
-      <div class="card">
-        <h3>You</h3>
-        <div class="field"><label for="myName">Your name at the table</label><input class="input" id="myName" maxlength="18" value="${esc(ui.prefs.name)}" placeholder="e.g. Subomi"></div>
-        <div class="field"><span class="lbl">Token</span>${tokenPicker(ui.prefs.token, [], 'data-mytok')}</div>
-        <hr style="border:0;border-top:1px solid var(--line);width:100%">
-        <h3>Join a room</h3>
-        <div style="display:flex;gap:8px"><input class="input" id="joinCode" maxlength="6" placeholder="Room code" style="text-transform:uppercase;letter-spacing:.15em;font-weight:800" aria-label="Room code"><button class="btn green" data-act="join-code" ${ok ? '' : 'disabled'}>Join</button></div>
-        <div style="display:flex;align-items:center;gap:8px"><h3 style="flex:1">Open rooms</h3><button class="btn ghost small" data-act="rooms-refresh" ${ok ? '' : 'disabled'}>Refresh</button></div>
-        <div class="rooms" id="roomList">${roomsHTML()}</div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-content:start;min-width:0">
+        <div class="card">
+          <h3>You</h3>
+          <div class="field"><label for="myName">Your name at the table</label><input class="input" id="myName" maxlength="18" value="${esc(ui.prefs.name)}" placeholder="e.g. Subomi"></div>
+          <div class="field"><span class="lbl">Token</span>${tokenPicker(ui.prefs.token, [], 'data-mytok')}</div>
+          <div class="field"><label for="joinCode">Have a room code?</label>
+            <div style="display:flex;gap:8px"><input class="input" id="joinCode" maxlength="6" placeholder="ABCDE" style="text-transform:uppercase;letter-spacing:.15em;font-weight:800"><button class="btn green" data-act="join-code" ${ok ? '' : 'disabled'}>Join</button></div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="flex:1">Open rooms</h3><span class="chip g" id="roomCount" ${ui.rooms && ui.rooms.length ? '' : 'hidden'}>${ui.rooms ? ui.rooms.length : 0} live</span><button class="btn ghost small" data-act="rooms-refresh" ${ok ? '' : 'disabled'}>Refresh</button></div>
+          <p class="small muted" style="margin:0">Public rooms from players anywhere in the world. Join one that is waiting, or watch a game in play.</p>
+          <div class="rooms" id="roomList">${roomsHTML()}</div>
+        </div>
       </div>
       <div class="card" id="createSettings">
         <h3>Create a room</h3>
-        ${settingsHTML(ui.createSettings, true)}
+        ${settingsHTML(ui.createSettings, true, true)}
         <button class="btn primary big block" data-act="create-room" ${ok ? '' : 'disabled'}>Create room</button>
       </div>
     </div>
@@ -1582,14 +1596,26 @@ function renderOnline() {
 function roomsHTML() {
   if (!onlineOK()) return '<div class="empty">Rooms appear here once you are connected.</div>';
   if (!ui.rooms) return '<div class="empty">Looking for rooms…</div>';
-  if (!ui.rooms.length) return '<div class="empty">No open rooms right now. Create one and share the code.</div>';
-  return ui.rooms.map(r => `<div class="room"><div class="avatar" style="--pc:${PLAYER_COLORS[0]}">${esc((r.players[0] || {}).token || '🎲')}</div>
-    <div class="grow"><b>${esc(r.code)}</b> <span class="chip">${r.status === 'lobby' ? 'Waiting' : 'In play'}</span><div class="small muted">${r.players.map(p => esc(p.name)).join(', ')} · ${esc(BOARDS[r.settings.board].name)}</div></div>
-    <button class="btn small ${r.mine ? '' : 'green'}" data-join="${esc(r.code)}">${r.mine ? 'Rejoin' : 'Join'}</button></div>`).join('');
+  if (!ui.rooms.length) return '<div class="empty">No public rooms right now. Create one and it will show up here for everyone.</div>';
+  return ui.rooms.map(r => {
+    const players = r.players || [], max = (r.settings || {}).maxPlayers || 6, host = players[0] || {};
+    const waiting = r.status === 'lobby', full = players.length >= max;
+    const btn = r.mine ? `<button class="btn small" data-join="${esc(r.code)}">Rejoin</button>`
+      : waiting ? (full ? `<button class="btn small" disabled>Full</button>` : `<button class="btn small green" data-join="${esc(r.code)}">Join</button>`)
+      : `<button class="btn small ghost" data-watch="${esc(r.code)}">Watch</button>`;
+    return `<div class="room"><div class="avatar" style="--pc:${waiting ? 'var(--good)' : 'var(--danfo)'}">${esc(host.token || '🎲')}</div>
+      <div class="grow" style="min-width:0"><b>${esc(host.name || 'Someone')}'s room</b> <span class="chip ${waiting ? 'g' : 'y'}">${waiting ? 'Waiting' : 'In play'}</span>
+        <div class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${players.length}/${max} players · ${esc((BOARDS[(r.settings || {}).board] || BOARDS.classic).name)} · code ${esc(r.code)}</div></div>${btn}</div>`;
+  }).join('');
 }
+function updateRoomList() {
+  const el = $('#roomList'); if (el) el.innerHTML = roomsHTML();
+  const c = $('#roomCount'); if (c) { const n = (ui.rooms || []).length; c.hidden = !n; c.textContent = n + ' live'; }
+}
+function watchRoom(code) { joinRoom(code); }
 async function loadRooms() {
   if (!onlineOK()) return;
-  ui.rooms = null; const el = $('#roomList'); if (el) el.innerHTML = roomsHTML();
+  ui.rooms = null; updateRoomList();
   try {
     const cutoff = Date.now() - 6 * 3600 * 1000;
     const [open, mine] = await Promise.all([
@@ -1597,11 +1623,11 @@ async function loadRooms() {
       ui.db.collection('games').where('playerIds', 'array-contains', ui.me).limit(40).get(),
     ]);
     const map = new Map();
-    open.docs.forEach(d => { const v = d.data(); if (v && v.updatedAt > cutoff) map.set(v.code, Object.assign({ mine: false }, v)); });
+    open.docs.forEach(d => { const v = d.data(); if (v && v.updatedAt > cutoff && v.settings.public !== false) map.set(v.code, Object.assign({ mine: false }, v)); });
     mine.docs.forEach(d => { const v = d.data(); if (v && v.status !== 'ended' && v.updatedAt > cutoff - 18 * 3600 * 1000) map.set(v.code, Object.assign({}, v, { mine: true })); });
     ui.rooms = Array.from(map.values()).sort((a, b) => (b.mine - a.mine) || b.updatedAt - a.updatedAt).slice(0, 15);
   } catch (e) { ui.rooms = []; }
-  const el2 = $('#roomList'); if (el2) el2.innerHTML = roomsHTML();
+  updateRoomList();
 }
 function readMe() {
   const n = $('#myName'); if (n) ui.prefs.name = n.value.trim().slice(0, 18);
@@ -1721,6 +1747,7 @@ async function process(s) {
 }
 
 async function applyState(s) {
+  noticeChat(s);
   if (s.status === 'lobby' && ui.mode === 'online') { ui.shown = s; renderLobby(s); return; }
   if (ui.screen !== 'game' || !$('#game') || $('#game').dataset.board !== s.settings.board) buildGameScreen(s);
   const prev = ui.shown; ui.shown = s;
@@ -1735,7 +1762,6 @@ async function applyState(s) {
     return;
   }
   const prevTurn = prev && prev.order[prev.turn];
-  if (prev && prev.chat && s.chat.length > prev.chat.length && ui.tab !== 'log') ui.unread++;
   if (s.fx && s.fx.seq !== V.fxSeq) {
     V.fxSeq = s.fx.seq;
     if (s.rollSeq !== V.rollSeq) {
@@ -1796,6 +1822,7 @@ function buildGameScreen(s) {
     <aside class="pane" id="rightPane">
       <div class="tabs" role="tablist" id="tabs"></div>
       <div class="tabbody" id="tabbody"></div>
+      ${ui.mode === 'online' ? chatHTML(s) : ''}
     </aside>
   </section>`;
   const board = $('#boardWrap .board');
@@ -1812,6 +1839,7 @@ function buildGameScreen(s) {
 }
 
 function renderAll(s) {
+  renderChat(s);
   renderBoardState(s);
   placeTokens(s);
   renderPlayers(s);
@@ -2032,8 +2060,8 @@ function renderSide() {
   const me = actorId();
   const incoming = s.trades.filter(t => me && (ui.mode === 'local' ? controls(t.to) : t.to === me)).length;
   if (ui.tab === 'log') ui.unread = 0;
-  const tabs = [['props', 'Property'], ['trade', 'Trade'], ['log', 'Log & chat'], ['rules', 'Rules']];
-  tabsEl.innerHTML = tabs.map(([k, l]) => `<button role="tab" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}" data-tab="${k}">${l}${(k === 'trade' && incoming) || (k === 'log' && ui.unread) ? '<span class="dot"></span>' : ''}</button>`).join('');
+  const tabs = [['props', 'Property'], ['trade', 'Trade'], ['log', 'Game log'], ['rules', 'Rules']];
+  tabsEl.innerHTML = tabs.map(([k, l]) => `<button role="tab" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}" data-tab="${k}">${l}${(k === 'trade' && incoming) ? '<span class="dot"></span>' : ''}</button>`).join('');
   let h = '';
   if (ui.mode === 'local' && (ui.tab === 'props' || ui.tab === 'trade')) {
     const humans = s.players.filter(p => !p.bot && !p.bankrupt);
@@ -2121,10 +2149,7 @@ function tradeTab(s, me) {
 }
 
 function logTab(s) {
-  return `<div class="log" aria-live="polite">${s.log.slice(-60).map(l => `<div>${esc(l.m)}</div>`).join('')}</div>
-  <span class="lbl">Chat</span>
-  <div class="chat">${s.chat.length ? s.chat.map(c => `<div><b>${esc(c.name)}:</b> ${esc(c.text)}</div>`).join('') : '<span class="small muted">Say hello. Talk your trash.</span>'}</div>
-  <form class="chatform" id="chatform"><input class="input" id="chatIn" maxlength="200" placeholder="Message" aria-label="Chat message" autocomplete="off"><button class="btn small primary">Send</button></form>`;
+  return `<div class="log" aria-live="polite">${s.log.slice(-60).map(l => `<div>${esc(l.m)}</div>`).join('')}</div>`;
 }
 
 function rulesTab(s, me) {
@@ -2145,6 +2170,47 @@ function rulesTab(s, me) {
     <p class="small muted">Roll doubles to go again; three doubles in a row sends you to Kirikiri. In Kirikiri, roll doubles, pay ${fmt(JAIL_FINE)} bail, or use a free card. After three failed tries you pay bail and move. Own a whole colour set to build houses, then a hotel. Transport rent doubles with each stop you own. Utility rent is 4× the dice with one, 10× with two${st.board === 'mega' ? ', 20× with three' : ''}. If you can't pay, sell or mortgage. If that's not enough, you're bankrupt.</p>
     ${p && s.status === 'playing' ? confirmBtn('forfeit', 'Leave game and give up', 'btn danger small') : ''}
   </div>`;
+}
+
+/* chat */
+const QUICK = ['Oya, roll! 🎲', 'Wahala dey o 😩', 'Na wa o 😂', 'E don cast 💀', 'Well played 👏'];
+function chatItems(s) {
+  if (!s.chat.length) return '<span class="small muted">No messages yet. Say hello.</span>';
+  return s.chat.map(c => { const p = P(s, c.by); return `<div class="msg${c.by === ui.me ? ' mine' : ''}"><b style="color:${p ? p.color : 'var(--muted)'}">${esc(c.name)}</b> ${esc(c.text)}</div>`; }).join('');
+}
+function chatHTML(s) {
+  const canChat = ui.mode === 'online' && !!ui.me;
+  return `<div class="card chatcard" id="chatCard">
+    <div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="flex:1">Room chat</span><span class="small muted">${s.players.length} player${s.players.length === 1 ? '' : 's'}</span></div>
+    <div class="chat" id="chatList" aria-live="polite">${chatItems(s)}</div>
+    ${canChat ? `<div class="quick">${QUICK.map(q => `<button type="button" class="qchip" data-say="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+    <form class="chatform" id="chatform"><input class="input" id="chatIn" maxlength="200" placeholder="Type a message" aria-label="Chat message" autocomplete="off"><button class="btn small primary">Send</button></form>` : ''}
+  </div>`;
+}
+function renderChat(s) {
+  const list = $('#chatList'); if (!list || !s) return;
+  const html = chatItems(s);
+  if (list.innerHTML !== html) { list.innerHTML = html; list.scrollTop = list.scrollHeight; }
+}
+function noticeChat(s) {
+  const last = s.chat[s.chat.length - 1];
+  const key = last ? last.t + '|' + last.by + '|' + last.text : '';
+  if (ui.lastChat === undefined) { ui.lastChat = key; return; }
+  if (key === ui.lastChat) return;
+  ui.lastChat = key;
+  if (!last || last.by === ui.me || ui.mode !== 'online') return;
+  sound('tick');
+  const card = $('#chatCard');
+  const r = card && card.getBoundingClientRect();
+  const visible = r && r.top < innerHeight && r.bottom > 0;
+  if (!visible) toast(last.name + ': ' + last.text);
+}
+let lastSay = 0;
+function say(text) {
+  text = String(text || '').trim(); if (!text) return;
+  if (Date.now() - lastSay < 700) return;
+  lastSay = Date.now();
+  dispatch({ type: 'chat', by: ui.me, text }, true);
 }
 
 /* deed modal */
@@ -2203,6 +2269,7 @@ function showWinner(s) {
 
 /* ---------------- lobby (online) ---------------- */
 function renderLobby(s) {
+  const typing = $('#chatIn'), draft = typing ? typing.value : '', hadFocus = typing && document.activeElement === typing;
   if (ui.screen !== 'lobby') window.scrollTo(0, 0);
   ui.screen = 'lobby';
   const host = s.hostId === ui.me;
@@ -2223,9 +2290,14 @@ function renderLobby(s) {
         ${inRoom && mine ? `<div class="field"><span class="lbl">Your token</span>${tokenPicker(mine.token, taken, 'data-lobtok')}</div>` : ''}
         ${hostBanner()}<p class="note">${lobbyNote(s.code)}</p>
       </div>
-      <div class="card" id="lobbySettings"><h3>Rules ${host ? '' : '<span class="muted small">(set by the host)</span>'}</h3>${settingsHTML(s.settings, host)}</div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-content:start;min-width:0">
+        ${chatHTML(s)}
+        <div class="card" id="lobbySettings"><h3>Rules ${host ? '' : '<span class="muted small">(set by the host)</span>'}</h3>${settingsHTML(s.settings, host, true)}</div>
+      </div>
     </div>
   </section>`;
+  const ci = $('#chatIn'); if (ci) { ci.value = draft; if (hadFocus) { ci.focus(); ci.setSelectionRange(draft.length, draft.length); } }
+  const cl = $('#chatList'); if (cl) cl.scrollTop = cl.scrollHeight;
   if (host) bindSettings($('#lobbySettings'), () => ui.state.settings, st => { if (st.maxPlayers < ui.state.players.length) st.maxPlayers = ui.state.players.length; dispatch({ type: 'settings', by: ui.me, settings: st }); });
 }
 
@@ -2284,6 +2356,8 @@ document.addEventListener('click', e => {
   if (el.dataset.do) { dispatch({ type: el.dataset.do, by: actorId(), i: +el.dataset.i }); return; }
   if (el.dataset.trade) { dispatch({ type: el.dataset.trade, by: el.dataset.by, id: el.dataset.id }); return; }
   if (el.dataset.join) { joinRoom(el.dataset.join); return; }
+  if (el.dataset.watch) { watchRoom(el.dataset.watch); return; }
+  if (el.dataset.say) { say(el.dataset.say); return; }
   if (el.dataset.remove) { dispatch({ type: 'removePlayer', by: ui.me, target: el.dataset.remove }); return; }
   if (el.dataset.mytok) { ui.prefs.token = el.dataset.mytok; readMe(); renderOnline(); return; }
   if (el.dataset.lobtok) { const me = P(s, ui.me); dispatch({ type: 'join', by: ui.me, name: me.name, token: el.dataset.lobtok }); return; }
@@ -2346,10 +2420,8 @@ document.addEventListener('submit', e => {
   if (e.target.id !== 'chatform') return;
   e.preventDefault();
   const inp = $('#chatIn'); const text = inp.value.trim(); if (!text) return;
-  const by = ui.mode === 'online' ? ui.me : actorId();
   inp.value = '';
-  inp.blur();
-  dispatch({ type: 'chat', by, text });
+  say(text);
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
@@ -2437,7 +2509,7 @@ function onNetMessage(topic, buf) {
 
   if (t[0] === 'lobby') {
     if (!data) NET.lobby.delete(t[1]); else NET.lobby.set(t[1], data);
-    if (ui.screen === 'online') { const el = $('#roomList'); if (el) { ui.rooms = lobbyRooms(); el.innerHTML = roomsHTML(); } }
+    if (ui.screen === 'online') { ui.rooms = lobbyRooms(); updateRoomList(); }
     return;
   }
   if (t[0] === 'presence') {
@@ -2465,10 +2537,27 @@ function hostHandle(msg) {
   if (r.error) { if (!msg.quiet) pub('room/' + s.code + '/err/' + msg.from, { error: r.error }); return; }
   commit(r.state);
 }
+function lobbyRecord(s) {
+  if (!s || s.settings.public === false || s.status === 'ended') return null;
+  return { code: s.code, status: s.status, players: s.players.filter(p => !p.bankrupt).map(p => ({ name: p.name, token: p.token })),
+    settings: { board: s.settings.board, maxPlayers: s.settings.maxPlayers }, updatedAt: Date.now() };
+}
+function publishLobby(s, force) {
+  const rec = lobbyRecord(s);
+  const key = rec ? JSON.stringify([rec.status, rec.players, rec.settings]) : 'none';
+  if (!force && key === NET.lobbyKey) return;
+  if (!rec && NET.lobbyKey === 'none' && !force) return;
+  NET.lobbyKey = key;
+  pub('lobby/' + s.code, rec, true);
+}
+/* the host re-announces a public room every 40s so the list only shows rooms that are really open */
+setInterval(() => {
+  const s = ui.state;
+  if (s && ui.mode === 'online' && s.hostId === ui.me && NET.connected) publishLobby(s, true);
+}, 40000);
 function commit(s) {
   pub('room/' + s.code + '/state', s, true);
-  if (s.status === 'lobby') pub('lobby/' + s.code, { code: s.code, status: 'lobby', players: s.players.map(p => ({ name: p.name, token: p.token })), settings: { board: s.settings.board, maxPlayers: s.settings.maxPlayers }, updatedAt: Date.now() }, true);
-  else pub('lobby/' + s.code, null, true);
+  publishLobby(s, false);
   afterState(s);
   setState(s);
 }
@@ -2522,17 +2611,17 @@ function hostBanner() {
 function dbErr() { return 'Could not reach the game server. Check your connection and try again.'; }
 
 function lobbyRooms() {
-  const cutoff = Date.now() - 3 * 3600 * 1000;
-  return Array.from(NET.lobby.values()).filter(r => r && r.updatedAt > cutoff && r.status === 'lobby' && BOARDS[(r.settings || {}).board])
+  const cutoff = Date.now() - 150000;
+  return Array.from(NET.lobby.values()).filter(r => r && r.updatedAt > cutoff && (r.status === 'lobby' || r.status === 'playing') && BOARDS[(r.settings || {}).board] && Array.isArray(r.players))
     .map(r => Object.assign({ mine: false }, r))
-    .sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 15);
+    .sort((a, b) => (a.status === 'lobby' ? 0 : 1) - (b.status === 'lobby' ? 0 : 1) || b.updatedAt - a.updatedAt).slice(0, 30);
 }
 async function loadRooms() {
   if (!onlineOK()) return;
   if (!NET.lobbySub) { NET.lobbySub = true; NET.client.subscribe(NET.prefix + 'lobby/+'); }
   ui.rooms = lobbyRooms();
-  const el = $('#roomList'); if (el) el.innerHTML = roomsHTML();
-  setTimeout(() => { if (ui.screen === 'online') { ui.rooms = lobbyRooms(); const e2 = $('#roomList'); if (e2) e2.innerHTML = roomsHTML(); } }, 1500);
+  updateRoomList();
+  setTimeout(() => { if (ui.screen === 'online') { ui.rooms = lobbyRooms(); updateRoomList(); } }, 1500);
 }
 
 async function createRoom() {
@@ -2554,12 +2643,17 @@ async function joinRoom(code) {
   await enterRoom(code, false);
   NET.pendingJoin = me;
 }
+async function watchRoom(code) {
+  if (!onlineOK()) { toast('Still connecting to the game server…', true); return; }
+  readMe();
+  await enterRoom(code, false);
+}
 async function enterRoom(code, creating) {
   stopOnline();
   ui.mode = 'online'; ui.code = code; ui.state = null; ui.shown = null;
   ui.view = { pos: {}, dice: [3, 4], rollSeq: -1, fxSeq: -1, cardSeq: -1, winShown: null, first: true };
   ui.actor = null; ui.draft = null; ui.tab = 'props';
-  NET.actSub = false; NET.hostOnline = true;
+  NET.actSub = false; NET.hostOnline = true; NET.lobbyKey = null;
   if (NET.client) NET.client.publish(NET.prefix + 'presence/' + ui.me, '1', { retain: true });
   LS.set('nl-last-room', code);
   try { history.replaceState(null, '', '#' + code); } catch (e) {}
