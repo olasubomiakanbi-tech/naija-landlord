@@ -295,6 +295,8 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .tcol label.ck i{width:10px; height:10px; border-radius:3px; flex:none}
 .offer{background:var(--ink); border:1.5px solid var(--line); border-radius:12px; padding:10px; display:grid; gap:8px; font-size:.88rem}
 .offer.in{border-color:var(--danfo)}
+.idle{background:rgba(0,0,0,.3); color:#fff; border-radius:10px; padding:.4em .8em; font-weight:700; font-size:max(12px, calc(var(--u)*.24)); display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center}
+.idle.warn{background:rgba(226,72,47,.85)}
 .offer ul{margin:0; padding-left:18px}
 .rules{display:grid; gap:8px; font-size:.9rem}
 .rules dl{display:grid; grid-template-columns:auto auto; gap:4px 12px; margin:0}
@@ -315,6 +317,16 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .win .trophy{font-size:64px; animation:flipin .6s}
 .win h2{font-family:var(--f-display); font-weight:400; font-size:1.8rem}
 
+#music{position:fixed; left:calc(16px + env(safe-area-inset-left, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); z-index:40}
+.mfab{display:flex; align-items:center; gap:6px; border:2px solid var(--black); background:var(--danfo); color:var(--black); font-weight:800; border-radius:99px; padding:.55em 1em; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,.4)}
+.mfab svg{width:18px; height:18px}
+.mfab.on svg{animation:bob 1s ease-in-out infinite}
+.mdock{position:absolute; left:0; bottom:calc(100% + 10px); width:min(360px, calc(100vw - 32px)); max-height:calc(100vh - 120px); overflow:auto; background:var(--ink-2); border:1.5px solid var(--line); border-radius:16px; padding:14px; display:grid; gap:10px; box-shadow:0 20px 50px rgba(0,0,0,.55); transition:transform .25s, opacity .25s}
+.mdock[data-closed]{transform:translateY(20px); opacity:0; pointer-events:none; visibility:hidden}
+.stations{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:6px}
+.station{text-align:left; border:1.5px solid var(--line); background:var(--ink); color:var(--fg); border-radius:10px; padding:.5em .65em; cursor:pointer; display:grid; gap:1px}
+.station small{color:var(--muted); font-size:.74rem}
+.station.on{border-color:var(--danfo); background:var(--ink-4)}
 .toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); background:var(--fg); color:var(--ink); padding:.7em 1.1em; border-radius:12px; font-weight:700; z-index:60; box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:calc(100% - 32px); text-align:center}
 .toast.err{background:#FFD6D7; color:#5a0f14}
 
@@ -473,6 +485,8 @@ BOARDS.lagos = {
 };
 
 const SALARY = 200;
+const IDLE_MS = 60000;      // a player who does nothing on their turn for this long can be removed
+const ABANDON_MS = 30 * 60000;  // rooms with no moves for this long are closed
 const JAIL_FINE = 50;
 
 const TOKENS = [
@@ -790,6 +804,11 @@ function goBankrupt(s, p, reason) {
 function checkWinner(s) {
   if (s.status !== 'playing') return;
   const a = active(s);
+  if (s.mode === 'online' && a.length > 1 && !a.some(p => !p.bot)) {
+    s.status = 'closed'; s.closedReason = 'Every player has left, so the room has closed.';
+    log(s, 'Every player has left. Room closed.');
+    return;
+  }
   if (a.length === 1) {
     s.status = 'ended'; s.winner = a[0].id; s.phase = 'over';
     log(s, `${a[0].name} is the Naija Landlord! 🏆`);
@@ -1052,6 +1071,19 @@ const ACTIONS = {
     if (!p || p.bankrupt || !canAct(s, a, a.by)) return 'Not allowed.';
     goBankrupt(s, p, p.cash < 0 ? 'went bankrupt' : 'left the game');
   },
+  kickIdle(s, a) {
+    const c = cur(s), me = P(s, a.by);
+    if (!me || me.bankrupt || !canAct(s, a, a.by)) return 'Only players in the game can do that.';
+    if (!c || c.id !== a.target || c.bot) return 'You can only remove the player whose turn it is.';
+    if (s.auction) return 'Wait for the auction to finish.';
+    if (s.now - (s.activeAt || s.turnStarted || 0) < IDLE_MS) return `${c.name} still has time to play.`;
+    c.cash = Math.max(c.cash, 0);
+    goBankrupt(s, c, `was removed for not playing for a minute`);
+  },
+  closeRoom(s, a) {
+    if (s.mode !== 'local' && a.actor !== s.hostId) return 'Only the host can close the room.';
+    s.status = 'closed'; s.closedReason = a.reason || 'The host closed the room.';
+  },
   kick(s, a) {
     if (s.mode !== 'local' && a.actor !== s.hostId) return 'Only the host can do that.';
     const p = P(s, a.target);
@@ -1066,11 +1098,18 @@ const ACTIONS = {
     const give = cleanOffer(a.give), get = cleanOffer(a.get);
     if (!give.cash && !give.props.length && !give.cards && !get.cash && !get.props.length && !get.cards) return 'Add something to the trade.';
     const e = offerCheck(s, p, give) || offerCheck(s, o, get); if (e) return e;
+    let counterOf = null;
+    if (a.counterOf) {
+      const orig = s.trades.find(t => t.id === a.counterOf);
+      if (!orig || orig.to !== p.id || orig.from !== o.id) return 'That offer is no longer open.';
+      s.trades = s.trades.filter(t => t !== orig);
+      counterOf = orig.id;
+    }
     s.tradeSeq = (s.tradeSeq || 0) + 1;
-    s.trades.push({ id: 't' + s.tradeSeq, from: p.id, to: o.id, give, get, t: s.now });
+    s.trades.push({ id: 't' + s.tradeSeq, from: p.id, to: o.id, give, get, t: s.now, counterOf });
     p.lastAsk = s.turnCount || 0;
     if (s.trades.length > 12) s.trades.shift();
-    log(s, `${p.name} offered a trade to ${o.name}.`);
+    log(s, counterOf ? `${p.name} sent ${o.name} a counter-offer.` : `${p.name} offered a trade to ${o.name}.`);
   },
   tradeAccept(s, a) {
     const tr = s.trades.find(t => t.id === a.id);
@@ -1152,6 +1191,9 @@ function reduce(s0, a) {
   const err = fn(s, a);
   if (err) return { error: err };
   s.seq = (s.seq || 0) + 1; s.updatedAt = s.now;
+  const c0 = s0.status === 'playing' && cur(s0);
+  if (c0 && a.by === c0.id) s.activeAt = s.now;
+  if (s.turn !== s0.turn) s.activeAt = s.now;
   checkWinner(s);
   return { state: s };
 }
@@ -1178,13 +1220,26 @@ function botUnmortgage(s, p) {
   const m = ownedBy(s, p.id).filter(t => !unmortgageCheck(s, p.id, t.i) && p.cash - unmortgageCost(t) > 400);
   return m.length ? { type: 'unmortgage', by: p.id, i: m[0].i } : null;
 }
-function botTradeOk(s, p, tr) {
+function botTradeGap(s, p, tr) {
   const asker = P(s, tr.from);
   const val = (off, giving) => off.cash + off.cards * 50 + off.props.reduce((a, i) => a + propValue(s, i) * (giving ? (completesGroup(s, asker.id, i) ? 1.6 : 1) : (completesGroup(s, p.id, i) ? 1.8 : 1)), 0);
   const giving = tr.get, getting = tr.give;
-  for (const i of giving.props) { const t = T(s, i); if (t.type === 'prop' && ownsGroup(s, p.id, t.group)) return false; }
-  if (giving.cash > p.cash - 100) return false;
-  return val(getting, false) >= val(giving, true) * 1.15 + 10;
+  for (const i of giving.props) { const t = T(s, i); if (t.type === 'prop' && ownsGroup(s, p.id, t.group)) return Infinity; }
+  if (giving.cash > p.cash - 100) return Infinity;
+  return val(giving, true) * 1.15 + 10 - val(getting, false);
+}
+function botTradeOk(s, p, tr) { return botTradeGap(s, p, tr) <= 0; }
+/* a bot that dislikes an offer asks for more cash instead, once per offer chain */
+function botCounter(s, p, tr) {
+  if (tr.counterOf) return null;
+  const gap = botTradeGap(s, p, tr);
+  if (!isFinite(gap) || gap <= 0) return null;
+  const asker = P(s, tr.from);
+  const extra = Math.ceil(gap / 10) * 10;
+  if (asker.cash < tr.give.cash + extra || extra > 600) return null;
+  return { type: 'tradePropose', by: p.id, to: asker.id, counterOf: tr.id,
+    give: { cash: tr.get.cash, props: tr.get.props.slice(), cards: tr.get.cards },
+    get: { cash: tr.give.cash + extra, props: tr.give.props.slice(), cards: tr.give.cards } };
 }
 function botProposeTrade(s, p) {
   if (s.trades.some(t => t.from === p.id)) return null;
@@ -1210,7 +1265,10 @@ function botAction(s, bid) {
   const p = P(s, bid);
   if (!p || p.bankrupt || s.status !== 'playing') return null;
   const tr = s.trades.find(t => t.to === bid);
-  if (tr) return { type: botTradeOk(s, p, tr) ? 'tradeAccept' : 'tradeDecline', by: bid, id: tr.id };
+  if (tr) {
+    if (botTradeOk(s, p, tr)) return { type: 'tradeAccept', by: bid, id: tr.id };
+    return botCounter(s, p, tr) || { type: 'tradeDecline', by: bid, id: tr.id };
+  }
   if (s.auction) {
     const a = s.auction;
     if (a.by === bid) return null;
@@ -1290,6 +1348,7 @@ const ICONS = {
   ballot: '<svg viewBox="0 0 32 32"><rect x="5" y="13" width="22" height="15" rx="2" fill="#fff" stroke="#141414" stroke-width="1.8"/><rect x="11" y="13" width="10" height="2.5" fill="#141414"/><path d="M12 4h8l1 10h-10z" fill="#16964F" stroke="#141414" stroke-width="1.5"/><path d="M14 8l1.5 1.5L18 6.5" stroke="#fff" stroke-width="1.4" fill="none"/><text x="16" y="24" text-anchor="middle" font-size="5.5" font-weight="900" font-family="Arial" fill="#D4252D">VOTE</text></svg>',
   sound: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>',
   mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="m17 9 5 6M22 9l-5 6"/></svg>',
+  music: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9H3z"/><path d="M10 20v-5h4v5"/></svg>',
 };
 function tileIcon(t) {
@@ -1327,6 +1386,133 @@ function sound(kind) {
     if (kind === 'turn') { tone(784, .1, 0, 'sine', .06); tone(1175, .16, .1, 'sine', .06); }
   } catch (e) {}
 }
+
+/* ---------------- music ----------------
+   Real songs play through the official Spotify, Audiomack and YouTube players (the hosted web app only).
+   "Game beat" is an original Afro groove generated in the browser, so it works everywhere. */
+var EMBEDS_OK = false;
+const STATIONS = [
+  { id: 'beat', name: 'Game beat', note: 'Original Afro groove made for the game' },
+  { id: 'afrohits', name: 'Afro Hits', note: 'Spotify', src: 'https://open.spotify.com/embed/playlist/37i9dQZF1DWX0o6sD1a6P5?theme=0', h: 352 },
+  { id: 'rewind', name: 'Rewind: Naija Hits', note: 'Spotify', src: 'https://open.spotify.com/embed/playlist/37i9dQZF1DXcSEAOqwtmQ3?theme=0', h: 352 },
+  { id: 'top100', name: 'Nigeria Top 100', note: 'Audiomack', src: 'https://audiomack.com/embed/playlist/turntable-charts/official-nigeria-top-100', h: 400 },
+  { id: 'afrosounds', name: 'Afrosounds', note: 'Audiomack', src: 'https://audiomack.com/embed/playlist/audiomack-africa/verified-afrobeats', h: 400 },
+  { id: 'custom', name: 'My playlist', note: 'Paste a Spotify, YouTube or Audiomack link' },
+];
+const music = { open: false, station: null, vol: 0.5, custom: (LS.get('nl-music') || {}).custom || '' };
+function embedFor(link) {
+  link = String(link || '').trim();
+  let m;
+  if ((m = link.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/))) return { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0`, h: m[1] === 'track' ? 152 : 352 };
+  if ((m = link.match(/[?&]list=([A-Za-z0-9_-]+)/)) && /youtu/.test(link)) return { src: `https://www.youtube.com/embed/videoseries?list=${m[1]}`, h: 220 };
+  if ((m = link.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/)([A-Za-z0-9_-]{6,})/))) return { src: `https://www.youtube.com/embed/${m[1]}`, h: 220 };
+  if ((m = link.match(/audiomack\.com\/([^/?#]+)\/(playlist|song|album)\/([^/?#]+)/))) return { src: `https://audiomack.com/embed/${m[2]}/${m[1]}/${m[3]}`, h: m[2] === 'song' ? 252 : 400 };
+  return null;
+}
+function musicHTML() {
+  const list = STATIONS.filter(st => EMBEDS_OK || !st.src && st.id !== 'custom');
+  return `<button class="mfab ${music.station ? 'on' : ''}" data-music="toggle" aria-label="Music">${ICONS.music}<span>${music.station ? 'Playing' : 'Music'}</span></button>
+  <div class="mdock" ${music.open ? '' : 'data-closed'} role="dialog" aria-label="Music">
+    <div style="display:flex;align-items:center;gap:8px"><b style="flex:1">Music</b>${music.station ? '<button class="btn ghost small" data-music="stop">Stop</button>' : ''}<button class="btn ghost small" data-music="toggle" aria-label="Hide music">Hide</button></div>
+    <div class="stations">${list.map(st => `<button class="station ${music.station === st.id ? 'on' : ''}" data-station="${st.id}"><b>${esc(st.name)}</b><small>${esc(st.note)}</small></button>`).join('')}</div>
+    ${music.station === 'custom' || (!music.station && false) ? '' : ''}
+    <div id="mcustom" ${music.pickCustom ? '' : 'hidden'}><div style="display:flex;gap:6px"><input class="input" id="mlink" placeholder="Paste a playlist or song link" value="${esc(music.custom)}" aria-label="Playlist link"><button class="btn small primary" data-music="play-custom">Play</button></div></div>
+    <div id="mbeat" ${music.station === 'beat' ? '' : 'hidden'}><label class="small muted" for="mvol">Volume</label><input type="range" id="mvol" min="0" max="1" step="0.05" value="${music.vol}" style="width:100%"></div>
+    <div id="mframe"></div>
+    ${EMBEDS_OK ? '<p class="small muted" style="margin:0">Spotify plays full songs if you are logged in to Spotify in this browser; otherwise 30-second previews. Audiomack and YouTube play full songs.</p>' : '<p class="small muted" style="margin:0">Real songs from Spotify, Audiomack and YouTube play on the web version at naijalandlord.app.</p>'}
+  </div>`;
+}
+function renderMusic() {
+  let root = $('#music');
+  if (!root) { root = document.createElement('div'); root.id = 'music'; document.body.appendChild(root); }
+  const frame = $('#mframe', root);
+  const keep = frame && frame.firstChild ? frame.firstChild : null;
+  root.innerHTML = musicHTML();
+  if (keep) $('#mframe', root).appendChild(keep);
+}
+function playStation(id, link) {
+  const st = STATIONS.find(x => x.id === id);
+  Beat.stop();
+  const holder = $('#mframe'); if (holder) holder.innerHTML = '';
+  music.station = id; music.pickCustom = id === 'custom' && !link;
+  if (id === 'beat') { Beat.start(); renderMusic(); return; }
+  let emb = st && st.src ? { src: st.src, h: st.h } : null;
+  if (id === 'custom') {
+    if (!link) { music.station = null; renderMusic(); const i = $('#mlink'); if (i) i.focus(); return; }
+    emb = embedFor(link);
+    if (!emb) { toast('That link is not a Spotify, YouTube or Audiomack link I can play.', true); music.station = null; music.pickCustom = true; renderMusic(); return; }
+    music.custom = link; LS.set('nl-music', { custom: link });
+  }
+  renderMusic();
+  const f = document.createElement('iframe');
+  f.src = emb.src; f.height = emb.h; f.width = '100%'; f.loading = 'lazy'; f.title = st ? st.name : 'Music';
+  f.allow = 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';
+  f.style.border = '0'; f.style.borderRadius = '12px'; f.style.display = 'block';
+  $('#mframe').appendChild(f);
+}
+function stopMusic() { Beat.stop(); music.station = null; music.pickCustom = false; const h = $('#mframe'); if (h) h.innerHTML = ''; renderMusic(); }
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-music],[data-station]');
+  if (!b) return;
+  if (b.dataset.station) { playStation(b.dataset.station); return; }
+  const k = b.dataset.music;
+  if (k === 'toggle') { music.open = !music.open; const d = $('.mdock'); if (d) d.toggleAttribute('data-closed', !music.open); }
+  if (k === 'stop') stopMusic();
+  if (k === 'play-custom') playStation('custom', ($('#mlink') || {}).value);
+});
+document.addEventListener('input', e => { if (e.target.id === 'mvol') { music.vol = +e.target.value; Beat.setVol(music.vol); } });
+
+/* an original Afrobeats-style groove: kick, shaker, rim, log-drum bass and soft chords */
+const Beat = {
+  on: false, step: 0, next: 0, timer: null, master: null, noise: null,
+  bpm: 106,
+  chords: [[62, 65, 69, 72], [55, 59, 62, 65], [60, 64, 67, 71], [57, 60, 64, 67]],
+  roots: [38, 43, 36, 45],
+  start() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) { return; }
+    if (!this.noise) {
+      const len = actx.sampleRate * 0.5, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this.noise = buf;
+    }
+    this.master = actx.createGain(); this.master.gain.value = music.vol * 0.5; this.master.connect(actx.destination);
+    this.on = true; this.step = 0; this.next = actx.currentTime + 0.08;
+    this.timer = setInterval(() => this.tick(), 25);
+  },
+  stop() { this.on = false; clearInterval(this.timer); if (this.master) { try { this.master.gain.setTargetAtTime(0, actx.currentTime, 0.05); } catch (e) {} } this.master = null; },
+  setVol(v) { if (this.master) this.master.gain.setTargetAtTime(v * 0.5, actx.currentTime, 0.05); },
+  tick() {
+    if (!this.on) return;
+    const spb = 60 / this.bpm / 4;
+    while (this.next < actx.currentTime + 0.12) { this.play(this.step, this.next); this.next += spb; this.step = (this.step + 1) % 64; }
+  },
+  hz: m => 440 * Math.pow(2, (m - 69) / 12),
+  env(node, t, a, peak, d) { node.gain.setValueAtTime(0.0001, t); node.gain.exponentialRampToValueAtTime(peak, t + a); node.gain.exponentialRampToValueAtTime(0.0001, t + a + d); },
+  osc(type, f, t, dur, peak, f2) {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    this.env(g, t, 0.005, peak, dur); o.connect(g).connect(this.master); o.start(t); o.stop(t + dur + 0.05);
+  },
+  hit(t, freq, q, dur, peak, type) {
+    const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    s.buffer = this.noise; f.type = type || 'highpass'; f.frequency.value = freq; f.Q.value = q;
+    this.env(g, t, 0.002, peak, dur); s.connect(f).connect(g).connect(this.master); s.start(t); s.stop(t + dur + 0.05);
+  },
+  play(step, t) {
+    if (!this.master) return;
+    const s16 = step % 16, bar = Math.floor(step / 16) % 4;
+    if (s16 === 0 || s16 === 7 || s16 === 10) this.osc('sine', 140, t, 0.32, 0.9, 42);              // kick
+    this.hit(t, 7500, 0.7, s16 % 2 ? 0.05 : 0.03, s16 % 4 === 2 ? 0.22 : 0.1);                      // shaker
+    if (s16 === 4 || s16 === 12) this.hit(t, 1900, 2.5, 0.12, 0.35, 'bandpass');                    // clap
+    if ([3, 6, 11, 14].includes(s16)) this.osc('square', 1650, t, 0.025, 0.06);                      // rim
+    if ([0, 3, 6, 10, 13].includes(s16)) { const r = this.roots[bar] + (s16 === 13 ? 7 : 0); this.osc('sine', this.hz(r + 12), t, 0.28, 0.5, this.hz(r)); } // log drum
+    if ([2, 6, 10, 14].includes(s16)) this.chords[bar].forEach(m => this.osc('triangle', this.hz(m), t, 0.16, 0.045));   // chord stabs
+    if (s16 === 9 || (s16 === 15 && bar % 2)) this.osc('sine', 330, t, 0.18, 0.18, 210);           // talking drum
+  },
+};
 
 /* ---------------- toast ---------------- */
 let toastT;
@@ -1828,7 +2014,15 @@ async function process(s) {
 }
 
 async function applyState(s) {
+  if (ui.mode === 'online' && (s.status === 'closed' || ((s.status === 'lobby' || s.status === 'playing') && Date.now() - s.updatedAt > ABANDON_MS))) {
+    const why = s.status === 'closed' ? (s.closedReason || 'This room has closed.') : 'This room was inactive for 30 minutes and has closed.';
+    roomGone(s.code);
+    stopOnline(); ui.state = null; ui.shown = null; LS.del('nl-last-room');
+    closeModal(); showOnline(); toast(why);
+    return;
+  }
   noticeChat(s);
+  noticeTrades(s);
   if (s.status === 'lobby' && ui.mode === 'online') { ui.shown = s; renderLobby(s); return; }
   if (ui.screen !== 'game' || !$('#game') || $('#game').dataset.board !== s.settings.board) buildGameScreen(s);
   const prev = ui.shown; ui.shown = s;
@@ -2079,9 +2273,11 @@ function renderCenter() {
     if (debt) btns += `<button class="btn ghost small" data-tab="props">Manage property</button>` + confirmBtn('bankrupt', 'Declare bankruptcy', 'btn danger small');
     h += `<div class="c-actions">${btns}</div>`;
   }
+  h += '<div id="idleBox"></div>';
   if (s.settings.vacationCash && s.pot > 0) h += `<div class="c-pot">${esc(PK())} pot ${fmt(s.pot)}</div>`;
   el.innerHTML = h;
   $$('button', el).forEach(b => { if (busy && b.dataset.act && !b.dataset.bid) b.disabled = true; });
+  renderIdle();
   updateAuctionBar();
 }
 function phaseText(s, c) {
@@ -2203,6 +2399,7 @@ function tradeTab(s, me) {
   if (!me) return '<div class="empty">Spectators cannot trade.</div>';
   const p = P(s, me);
   const others = s.players.filter(o => o.id !== me && !o.bankrupt);
+  if (ui.draft && ui.draft.counterOf && !s.trades.find(t => t.id === ui.draft.counterOf)) ui.draft = null;
   if (!ui.draft || ui.draft.from !== me) ui.draft = { from: me, to: (others[0] || {}).id, give: { cash: 0, props: [], cards: 0 }, get: { cash: 0, props: [], cards: 0 } };
   const d = ui.draft;
   if (!others.find(o => o.id === d.to)) d.to = (others[0] || {}).id;
@@ -2223,18 +2420,18 @@ function tradeTab(s, me) {
     const items = (off, who) => [off.cash ? fmt(off.cash) : '', ...off.props.map(i => T(s, i).name), off.cards ? 'Get-out-of-' + J() + ' card' : ''].filter(Boolean).map(x => `<li>${esc(x)}</li>`).join('') || '<li>Nothing</li>';
     const canAnswer = ui.mode === 'local' ? controls(t.to) : t.to === me;
     const canCancel = ui.mode === 'local' ? controls(t.from) : t.from === me;
-    return `<div class="offer ${canAnswer ? 'in' : ''}"><b>${esc(a.name)} → ${esc(b.name)}</b>
+    return `<div class="offer ${canAnswer ? 'in' : ''}"><b>${esc(a.name)} → ${esc(b.name)}</b>${t.counterOf ? ' <span class="chip y">Counter-offer</span>' : ''}
       <div class="tcols"><div><span class="lbl">${esc(a.name)} gives</span><ul>${items(t.give)}</ul></div><div><span class="lbl">${esc(b.name)} gives</span><ul>${items(t.get)}</ul></div></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${canAnswer ? `<button class="btn small primary" data-trade="tradeAccept" data-id="${t.id}" data-by="${t.to}">${ui.mode === 'local' ? esc(b.name) + ' accepts' : 'Accept'}</button><button class="btn small" data-trade="tradeDecline" data-id="${t.id}" data-by="${t.to}">Decline</button>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${canAnswer ? `<button class="btn small primary" data-trade="tradeAccept" data-id="${t.id}" data-by="${t.to}">${ui.mode === 'local' ? esc(b.name) + ' accepts' : 'Accept'}</button><button class="btn small green" data-counter="${t.id}">Counter</button><button class="btn small" data-trade="tradeDecline" data-id="${t.id}" data-by="${t.to}">Decline</button>` : ''}
       ${canCancel && !canAnswer ? `<button class="btn small ghost" data-trade="tradeDecline" data-id="${t.id}" data-by="${t.from}">Cancel offer</button>` : ''}</div></div>`;
   }).join('');
   if (!o) return `<div class="empty">No one left to trade with.</div>` + offerList;
   return `<div class="trade">
     ${offerList ? `<span class="lbl">Offers</span>${offerList}` : ''}
-    <span class="lbl">New offer</span>
-    <div class="field"><label for="tradeTo">Trade with</label><select class="input" id="tradeTo">${others.map(x => `<option value="${x.id}" ${x.id === d.to ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+    ${d.counterOf ? `<div class="note" style="border-color:var(--danfo);color:var(--fg)">Counter-offer to <b>${esc(o.name)}</b>. Their offer is loaded below with the sides swapped. Change what you give or ask for, then send it back.<div style="margin-top:8px"><button class="btn ghost small" data-act="cancelCounter">Cancel counter-offer</button></div></div>` : '<span class="lbl">New offer</span>'}
+    <div class="field"><label for="tradeTo">Trade with</label><select class="input" id="tradeTo" ${d.counterOf ? 'disabled' : ''}>${others.map(x => `<option value="${x.id}" ${x.id === d.to ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
     <div class="tcols">${col('give', p)}${col('get', o)}</div>
-    <button class="btn primary" data-act="sendTrade">Send offer</button>
+    <button class="btn primary" data-act="sendTrade">${d.counterOf ? 'Send counter-offer' : 'Send offer'}</button>
   </div>`;
 }
 
@@ -2299,6 +2496,41 @@ function noticeChat(s) {
   const visible = r && r.top < innerHeight && r.bottom > 0;
   if (!visible) toast(last.name + ': ' + last.text);
 }
+function noticeTrades(s) {
+  if (ui.mode !== 'online') return;
+  const mine = s.trades.filter(t => t.to === ui.me).map(t => t.id);
+  const seen = ui.seenTrades || (ui.seenTrades = new Set(mine));
+  const fresh = mine.filter(id => !seen.has(id));
+  fresh.forEach(id => seen.add(id));
+  if (!fresh.length) return;
+  const t = s.trades.find(x => x.id === fresh[fresh.length - 1]);
+  const from = P(s, t.from);
+  sound('card');
+  toast(`${from ? from.name : 'Someone'} sent you a ${t.counterOf ? 'counter-offer' : 'trade offer'}. Open the Trade tab.`);
+}
+function roomGone(code) { if (ui.db) ui.db.doc('games/' + code).delete().catch(() => {}); }
+/* idle timer: show it, and let other players remove someone who has stalled for a minute */
+function renderIdle() {
+  const el = $('#idleBox'); const s = ui.state;
+  if (!el) return;
+  let h = '';
+  if (s && ui.mode === 'online' && s.status === 'playing' && !s.auction) {
+    const c = cur(s), me = P(s, ui.me);
+    const since = Date.now() - (s.activeAt || s.turnStarted || Date.now());
+    const left = Math.ceil((IDLE_MS - since) / 1000);
+    if (c && !c.bot) {
+      if (c.id === ui.me && since > 30000) h = left > 0 ? `<div class="idle warn">Make a move. Other players can remove you in ${left}s.</div>` : `<div class="idle warn">You've been idle over a minute. Other players can remove you now.</div>`;
+      else if (c.id !== ui.me && me && !me.bankrupt && since > 30000) h = left > 0 ? `<div class="idle">${esc(c.name)} has been idle for ${Math.floor(since / 1000)}s.</div>` : `<div class="idle">${esc(c.name)} has been idle for over a minute. <button class="btn danger small" data-act="kickIdle">Remove ${esc(c.name)}</button></div>`;
+    }
+  }
+  if (el.innerHTML !== h) el.innerHTML = h;
+}
+setInterval(() => {
+  renderIdle();
+  const s = ui.state;
+  if (s && ui.mode === 'online' && (s.status === 'lobby' || s.status === 'playing') && Date.now() - s.updatedAt > ABANDON_MS) process(s);
+}, 1000);
+
 let lastSay = 0;
 function say(text) {
   text = String(text || '').trim(); if (!text) return;
@@ -2452,6 +2684,15 @@ document.addEventListener('click', e => {
   if (el.dataset.trade) { dispatch({ type: el.dataset.trade, by: el.dataset.by, id: el.dataset.id }); return; }
   if (el.dataset.join) { joinRoom(el.dataset.join); return; }
   if (el.dataset.watch) { watchRoom(el.dataset.watch); return; }
+  if (el.dataset.counter) {
+    const tr = s && s.trades.find(t => t.id === el.dataset.counter); if (!tr) return;
+    const cp = o => ({ cash: o.cash, props: o.props.slice(), cards: o.cards });
+    if (ui.mode === 'local') ui.actor = tr.to;
+    ui.draft = { from: tr.to, to: tr.from, give: cp(tr.get), get: cp(tr.give), counterOf: tr.id };
+    ui.tab = 'trade'; renderSide();
+    const tb = $('#tabbody'); if (tb) tb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
   if (el.dataset.say) { say(el.dataset.say); return; }
   if (el.dataset.remove) { dispatch({ type: 'removePlayer', by: ui.me, target: el.dataset.remove }); return; }
   if (el.dataset.mytok) { ui.prefs.token = el.dataset.mytok; readMe(); renderOnline(); return; }
@@ -2473,6 +2714,7 @@ document.addEventListener('click', e => {
     case 'copy-code': { const code = s && s.code; try { navigator.clipboard.writeText(code).then(() => toast('Code copied: ' + code), () => toast('Room code: ' + code)); } catch (err) { toast('Room code: ' + code); } break; }
     case 'lobby-leave':
       if (s && s.hostId !== ui.me && s.playerIds.includes(ui.me)) dispatch({ type: 'removePlayer', by: ui.me, target: ui.me }, true);
+      if (s && s.hostId === ui.me && s.status === 'lobby') { dispatch({ type: 'closeRoom', by: ui.me, reason: 'The host closed the room.' }, true); roomGone(s.code); }
       stopOnline(); ui.state = null; LS.del('nl-last-room'); showOnline(); break;
     case 'addBot': dispatch({ type: 'addBot', by: ui.me }); break;
     case 'start': dispatch({ type: 'start', by: ui.me }); break;
@@ -2483,13 +2725,28 @@ document.addEventListener('click', e => {
       if (ui.mode === 'local') { ui.setup = { settings: Object.assign({}, s.settings), players: s.players.map(p => ({ name: p.name.replace(/ \(bot\)$/, ''), token: p.token, bot: p.bot })) }; LS.del('nl-local'); showLocalSetup(); }
       else dispatch({ type: 'rematch', by: ui.me });
       break;
-    case 'leave': closeModal(); stopOnline(); ui.state = null; ui.shown = null; clearTimeout(ui.botT); clearTimeout(ui.auT); showHome(); break;
+    case 'leave':
+      if (ui.mode === 'online' && s && s.status === 'playing' && P(s, ui.me) && !P(s, ui.me).bankrupt) {
+        openModal(`<h3>Leave this game?</h3><p class="muted" style="margin:0">If you quit now you go bankrupt and your property goes back to the bank. You can also just close the page and come back, but after a minute of not playing on your turn, other players can remove you.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn danger" data-act="quit-confirm">Quit and go bankrupt</button><button class="btn" data-act="leave-keep">Leave for now</button><button class="btn ghost" data-act="close-modal">Stay</button></div>`);
+        break;
+      }
+      closeModal(); stopOnline(); ui.state = null; ui.shown = null; clearTimeout(ui.botT); clearTimeout(ui.auT); showHome(); break;
+    case 'leave-keep': closeModal(); stopOnline(); ui.state = null; ui.shown = null; clearTimeout(ui.botT); clearTimeout(ui.auT); showHome(); break;
     case 'mute': ui.muted = !ui.muted; savePrefs(); el.innerHTML = ui.muted ? ICONS.mute : ICONS.sound; if (!ui.muted) sound('tick'); break;
     case 'close-modal': closeModal(); break;
+    case 'cancelCounter': ui.draft = null; renderSide(); break;
+    case 'kickIdle': { const c = cur(s); if (c) dispatch({ type: 'kickIdle', by: ui.me, target: c.id }); break; }
+    case 'quit-confirm': {
+      closeModal();
+      const me = ui.mode === 'online' ? ui.me : actorId();
+      dispatch({ type: 'bankrupt', by: me }).then(() => { if (ui.mode === 'online') { stopOnline(); ui.state = null; ui.shown = null; LS.del('nl-last-room'); showHome(); } });
+      break;
+    }
     case 'sendTrade': {
       const d = ui.draft; if (!d) break;
       readTradeInputs();
-      dispatch({ type: 'tradePropose', by: d.from, to: d.to, give: d.give, get: d.get }).then(r => { if (r && !r.error) { ui.draft = null; toast('Offer sent.'); renderSide(); } });
+      dispatch({ type: 'tradePropose', by: d.from, to: d.to, give: d.give, get: d.get, counterOf: d.counterOf || null }).then(r => { if (r && !r.error) { ui.draft = null; toast(d.counterOf ? 'Counter-offer sent.' : 'Offer sent.'); renderSide(); } });
       break;
     }
   }
@@ -2527,6 +2784,7 @@ document.addEventListener('keydown', e => {
    BOOT
    ===================================================================== */
 function start(data) {
+  renderMusic();
   window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ local: ui.mode === 'local' ? ui.state : null }));
   if (data && data.local && data.local.status === 'playing') enterLocal(data.local);
   else showHome();
@@ -2653,6 +2911,8 @@ setInterval(() => {
 function commit(s) {
   pub('room/' + s.code + '/state', s, true);
   publishLobby(s, false);
+  /* finished or closed rooms are wiped from the relay so nobody can reopen them */
+  if (s.status === 'ended' || s.status === 'closed') { pub('room/' + s.code + '/state', null, true); pub('lobby/' + s.code, null, true); }
   afterState(s);
   setState(s);
 }
@@ -2703,6 +2963,12 @@ function hostBanner() {
   return `<div class="note" style="background:rgba(0,0,0,.35);color:#fff;border-color:var(--danfo)">The host has gone offline. ${canTake ? 'Wait for them, or take over and run the game from your device.' : 'Waiting for them to come back.'}
     ${canTake ? '<div style="margin-top:8px"><button class="btn primary small" data-net="takeover">Take over as host</button></div>' : ''}</div>`;
 }
+function roomGone(code) {
+  if (!code) return;
+  pub('room/' + code + '/state', null, true);
+  pub('lobby/' + code, null, true);
+}
+EMBEDS_OK = true;
 function dbErr() { return 'Could not reach the game server. Check your connection and try again.'; }
 
 function lobbyRooms() {
