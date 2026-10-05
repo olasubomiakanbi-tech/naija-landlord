@@ -231,7 +231,13 @@ h1,h2,h3{text-wrap:balance; margin:0}
 
 /* dice */
 .dice{display:flex; gap:calc(var(--u)*.35); perspective:600px}
-.die{width:calc(var(--u)*.95); height:calc(var(--u)*.95); min-width:30px; min-height:30px; position:relative; transform-style:preserve-3d; transition:transform 1s cubic-bezier(.2,.8,.2,1)}
+.die{width:calc(var(--u)*.95); height:calc(var(--u)*.95); min-width:30px; min-height:30px; position:relative; transform-style:preserve-3d}
+.dice.rolling{animation:rattle var(--roll, 3800ms) cubic-bezier(.3,.1,.3,1)}
+@keyframes rattle{0%{transform:translateY(0)} 8%{transform:translate(-14px,-26px) rotate(-8deg)} 18%{transform:translate(12px,6px) rotate(6deg)} 30%{transform:translate(-10px,-18px) rotate(-5deg)} 44%{transform:translate(8px,4px) rotate(4deg)} 58%{transform:translate(-6px,-10px) rotate(-3deg)} 72%{transform:translate(4px,2px)} 86%{transform:translate(-2px,-4px)} 100%{transform:none}}
+.dice.landed{animation:thud .5s ease-out}
+@keyframes thud{30%{transform:scale(1.18)} 60%{transform:scale(.95)} 100%{transform:none}}
+.dbl{position:absolute; top:22%; left:50%; transform:translateX(-50%); font-family:var(--f-display); color:var(--danfo); font-size:max(20px, calc(var(--u)*.6)); text-shadow:0 3px 0 var(--black); animation:popin 1.4s ease forwards; pointer-events:none; z-index:7}
+@keyframes popin{0%{opacity:0; transform:translateX(-50%) scale(.4)} 20%{opacity:1; transform:translateX(-50%) scale(1.15)} 80%{opacity:1} 100%{opacity:0; transform:translateX(-50%) translateY(-20px)}}
 .face{position:absolute; inset:0; background:#FFFDF6; border-radius:18%; display:grid; grid-template:repeat(3,1fr)/repeat(3,1fr); padding:14%; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.08); backface-visibility:hidden}
 .face i{width:72%; height:72%; border-radius:50%; background:var(--black); place-self:center}
 .face i.red{background:#C8102E}
@@ -243,6 +249,23 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .token.me{box-shadow:0 0 0 3px rgba(255,255,255,.7), 0 4px 8px rgba(0,0,0,.45)}
 .token.cur{z-index:3; animation:bob 1.3s ease-in-out infinite}
 @keyframes bob{50%{transform:translate(-50%,-62%)}}
+.token.moving{z-index:6; box-shadow:0 14px 18px rgba(0,0,0,.45)}
+.token.flying{z-index:8}
+.token.flying::after{content:'✈'; position:absolute; top:-70%; left:50%; transform:translateX(-50%); font-size:.8em}
+.tile.landed{animation:land .9s ease-out}
+@keyframes land{0%{box-shadow:inset 0 0 0 0 var(--danfo)} 25%{box-shadow:inset 0 0 0 4px var(--danfo), 0 0 18px var(--danfo)} 100%{box-shadow:inset 0 0 0 0 transparent}}
+.tile.passgo{animation:land .9s ease-out}
+.board.picking .tile{cursor:crosshair}
+.board.picking .tile:not(.c-jail):not(.c-gojail):hover{box-shadow:inset 0 0 0 3px #3DD68C}
+.board.picking .center{box-shadow:inset 0 0 0 3px #3DD68C, inset 0 0 60px rgba(0,0,0,.35)}
+.note{position:fixed; left:0; top:0; z-index:70; width:34px; height:20px; border-radius:3px; background:linear-gradient(135deg,#2DB46A,#0B7A47); border:1.5px solid #0a4a2b; color:#E8FFE9; font-weight:900; font-size:12px; display:grid; place-items:center; box-shadow:0 4px 10px rgba(0,0,0,.4); pointer-events:none}
+.pl.gain{animation:gain .9s ease-out}
+.pl.loss{animation:loss .9s ease-out}
+@keyframes gain{30%{box-shadow:0 0 0 3px #3DD68C, 0 0 22px rgba(61,214,140,.6)}}
+@keyframes loss{30%{box-shadow:0 0 0 3px #FF5C61, 0 0 22px rgba(255,92,97,.5)}}
+.pl .delta{position:absolute; right:12px; top:-10px; font-weight:900; font-size:.85rem; padding:.1em .45em; border-radius:6px; animation:deltaup 1.5s ease forwards; pointer-events:none}
+.pl .delta.gain{background:#3DD68C; color:#05301a} .pl .delta.loss{background:#FF5C61; color:#3b0507}
+@keyframes deltaup{0%{opacity:0; transform:translateY(8px)} 15%{opacity:1; transform:none} 80%{opacity:1} 100%{opacity:0; transform:translateY(-12px)}}
 .float{position:absolute; transform:translate(-50%,-50%); font-weight:800; font-size:max(13px, calc(var(--u)*.3)); pointer-events:none; animation:floatup 1.6s ease-out forwards; z-index:5; text-shadow:0 2px 0 rgba(0,0,0,.6)}
 .float.plus{color:#7CFFB7} .float.minus{color:#FF9EA1}
 @keyframes floatup{from{opacity:0; margin-top:0} 15%{opacity:1} to{opacity:0; margin-top:calc(var(--u) * -1.2)}}
@@ -398,7 +421,7 @@ const LANDMARKS = {
   y1: 'Jabi Lake',             y2: 'Millennium Park',     y3: 'Zuma Rock',       y4: 'Aso Rock',
   g1: 'Tafawa Balewa Square',  g2: 'National Theatre',    g3: 'Lekki Conservation Centre',
   n1: 'Eko Atlantic',          n2: 'Lekki–Ikoyi Link Bridge', n3: 'Banana Island',
-  t1: 'Oshodi Danfo Park',     t2: 'Lagos–Ibadan Railway', t3: 'Ojota BRT Terminal', t4: 'Murtala Muhammed Airport',
+  t1: 'Oshodi Danfo Park',     t2: 'Lagos–Ibadan Railway', t3: 'Nnamdi Azikiwe International Airport', t4: 'Murtala Muhammed International Airport',
   u1: 'NEPA Office',           u2: 'Water Board',         u3: 'Cooking Gas Plant',
 };
 
@@ -485,10 +508,11 @@ BOARDS.lagos = {
     y2: 'The Palms',          y3: 'Beach',            y4: 'Ivory Rooftop',
     g1: 'Quilox',             g2: 'Eko Casino',       g3: 'Ikoyi Golf Club',
     n1: 'Eko Hotels',         n3: 'Marina Towers',
-    t1: 'Danfo Park',         t2: 'Third Mainland Bridge', t3: 'Boat Cruise', t4: 'Airport',
+    t1: 'Danfo Park',         t2: 'Third Mainland Bridge', t3: 'Boat Cruise', t4: 'Murtala Muhammed International Airport',
     u1: 'Refinery',           u2: 'NEPA Office',
   },
   icons: { u1: 'flame', u2: 'bulb', t1: 'bus', t2: 'brt', t3: 'boat', t4: 'plane' },
+  airports: ['t4'],
   special: {
     JAIL:     { type: 'jail',   name: 'Police Station', sub: 'Just visiting' },
     PARK:     { type: 'park',   name: 'Freedom Park',   sub: 'Free party' },
@@ -506,6 +530,7 @@ BOARDS.lagos = {
 };
 
 const SALARY = 200;
+const FLIGHT_FARE = 50;     // owning every airport lets you fly anywhere for this fare
 const IDLE_MS = 60000;      // a player who does nothing on their turn for this long can be removed
 const ABANDON_MS = 30 * 60000;  // rooms with no moves for this long are closed
 const JAIL_FINE = 50;
@@ -593,7 +618,7 @@ function buildBoard(key) {
       const p = PROPS[k];
       return { i, key: k, type: 'prop', name: nm(k), group: p.g, price: p.price, rent: p.rent, house: GROUPS[p.g].house };
     }
-    if (/^t\d$/.test(k)) return { i, key: k, type: 'transport', name: nm(k), price: 200, icon: def.icons && def.icons[k] };
+    if (/^t\d$/.test(k)) return { i, key: k, type: 'transport', name: nm(k), price: 200, icon: (def.icons && def.icons[k]) || (/(Airport)/.test(nm(k)) ? 'plane' : undefined), air: (def.airports || ['t3', 't4']).includes(k) };
     if (/^u\d$/.test(k)) return { i, key: k, type: 'utility', name: nm(k), price: 150, icon: def.icons && def.icons[k] };
     const sp = (def.special && def.special[k]) || SPECIAL[k];
     return Object.assign({ i, key: k }, sp);
@@ -617,6 +642,8 @@ const T = (s, i) => B(s).tiles[i];
 const P = (s, id) => s.players.find(p => p.id === id);
 const cur = s => P(s, s.order[s.turn]);
 const active = s => s.players.filter(p => !p.bankrupt);
+const airports = s => B(s).tiles.filter(t => t.air);
+const ownsAllAirports = (s, pid) => airports(s).length >= 2 && airports(s).every(t => s.props[t.i] && s.props[t.i].owner === pid);
 const isBuyable = t => t && (t.type === 'prop' || t.type === 'transport' || t.type === 'utility');
 const r6 = () => 1 + Math.floor(Math.random() * 6);
 
@@ -641,7 +668,8 @@ function rentFor(s, i, diceSum, cardMult) {
   }
   if (t.type === 'transport') {
     const n = countOwned(s, pr.owner, 'transport');
-    return 25 * Math.pow(2, n - 1) * (cardMult ? 2 : 1);
+    const airBonus = t.air && ownsAllAirports(s, pr.owner) ? 2 : 1;
+    return 25 * Math.pow(2, n - 1) * (cardMult ? 2 : 1) * airBonus;
   }
   if (t.type === 'utility') {
     if (cardMult) return diceSum * 10;
@@ -680,6 +708,7 @@ function moveBy(s, p, steps) {
   let to = ((from + steps) % n + n) % n;
   if (steps > 0 && from + steps >= n) {
     p.cash += SALARY;
+    s.fx.pays.push({ from: null, to: p.id, amt: SALARY, src: 'go' });
     log(s, `${p.name} passed Start and collected ${fmt(SALARY)} salary.`);
   }
   p.pos = to;
@@ -712,20 +741,24 @@ function land(s, p, opts) {
     case 'prop': case 'transport': case 'utility': {
       const pr = s.props[p.pos];
       if (!pr) { s.phase = 'buy'; s.pending = { i: p.pos, cardMult: !!opts.cardMult }; return; }
-      if (pr.owner === p.id) return;
+      if (pr.owner === p.id) {
+        if (t.air && ownsAllAirports(s, p.id) && !pr.mort) { s.flight = { pid: p.id, from: p.pos }; log(s, `${p.name} owns every airport and can take a flight from ${t.name}.`); }
+        return;
+      }
       if (pr.mort) { log(s, `${t.name} is mortgaged. No rent.`); return; }
       const owner = P(s, pr.owner);
       if (!owner || owner.bankrupt) return;
       if (owner.inJail && s.settings.noRentInJail) { log(s, `${owner.name} is in ${jailName(s)}, so ${p.name} pays no rent.`); return; }
       const rent = rentFor(s, p.pos, dice, opts.cardMult);
       pay(s, p, rent, owner);
+      if (t.air && ownsAllAirports(s, owner.id)) log(s, `${owner.name} owns every airport, so the rent is doubled.`);
       s.fx.pays.push({ from: p.id, to: owner.id, amt: rent });
       log(s, `${p.name} paid ${fmt(rent)} rent to ${owner.name} for ${t.name}.`);
       return;
     }
     case 'tax':
       pay(s, p, t.amount, null, true);
-      s.fx.pays.push({ from: p.id, to: null, amt: t.amount });
+      s.fx.pays.push({ from: p.id, to: null, amt: t.amount, dst: s.settings.vacationCash ? 'pot' : null });
       log(s, `${p.name} paid ${fmt(t.amount)} ${t.name}.`);
       return;
     case 'wahala': case 'ajo':
@@ -738,7 +771,7 @@ function land(s, p, opts) {
     case 'park':
       if (s.settings.vacationCash && s.pot > 0) {
         log(s, `${p.name} collected the ${parkName(s)} pot of ${fmt(s.pot)}!`);
-        s.fx.pays.push({ from: null, to: p.id, amt: s.pot });
+        s.fx.pays.push({ from: null, to: p.id, amt: s.pot, src: 'pot' });
         p.cash += s.pot; s.pot = 0;
       }
       return;
@@ -771,24 +804,25 @@ function drawCard(s, p, deck) {
     case 'jailFree': p.jailCards.push(deck); return;
     case 'money':
       if (fx.n > 0) { p.cash += fx.n; s.fx.pays.push({ from: null, to: p.id, amt: fx.n }); }
-      else { pay(s, p, -fx.n, null, true); s.fx.pays.push({ from: p.id, to: null, amt: -fx.n }); }
+      else { pay(s, p, -fx.n, null, true); s.fx.pays.push({ from: p.id, to: null, amt: -fx.n, dst: s.settings.vacationCash ? 'pot' : null }); }
       return;
     case 'each':
-      active(s).forEach(o => { if (o.id !== p.id) pay(s, p, fx.n, o); });
+      active(s).forEach(o => { if (o.id !== p.id) { pay(s, p, fx.n, o); s.fx.pays.push({ from: p.id, to: o.id, amt: fx.n }); } });
       return;
     case 'fromEach':
-      active(s).forEach(o => { if (o.id !== p.id) pay(s, o, fx.n, p); });
+      active(s).forEach(o => { if (o.id !== p.id) { pay(s, o, fx.n, p); s.fx.pays.push({ from: o.id, to: p.id, amt: fx.n }); } });
       return;
     case 'repairs': {
       let total = 0;
       ownedBy(s, p.id).forEach(t => { const h = s.props[t.i].houses || 0; total += h === 5 ? fx.hotel : h * fx.house; });
-      if (total > 0) { pay(s, p, total, null, true); log(s, `${p.name} paid ${fmt(total)} for repairs.`); }
+      if (total > 0) { pay(s, p, total, null, true); s.fx.pays.push({ from: p.id, to: null, amt: total }); log(s, `${p.name} paid ${fmt(total)} for repairs.`); }
       return;
     }
   }
 }
 
 function nextTurn(s) {
+  s.flight = null;
   const c = cur(s);
   if (c) c.doubles = 0;
   s.rollAgain = false; s.pending = null;
@@ -940,6 +974,7 @@ const ACTIONS = {
     if (p.cash < 0) return 'Clear your debt before rolling.';
     const d1 = r6(), d2 = r6(); s.dice = [d1, d2]; s.rollSeq++;
     const dbl = d1 === d2, sum = d1 + d2;
+    s.flight = null;
     s.phase = 'landing';
     if (p.inJail) {
       if (dbl) {
@@ -948,7 +983,7 @@ const ACTIONS = {
       } else {
         p.jailTurns++;
         if (p.jailTurns >= 3) {
-          pay(s, p, JAIL_FINE, null, true); p.inJail = false; p.jailTurns = 0; s.rollAgain = false;
+          pay(s, p, JAIL_FINE, null, true); s.fx.pays.push({ from: p.id, to: null, amt: JAIL_FINE, dst: s.settings.vacationCash ? 'pot' : null }); p.inJail = false; p.jailTurns = 0; s.rollAgain = false;
           log(s, `${p.name} paid the ${fmt(JAIL_FINE)} fine after 3 tries and left ${jailName(s)}.`);
         } else {
           s.rollAgain = false; s.phase = 'done';
@@ -978,6 +1013,7 @@ const ACTIONS = {
     const t = T(s, s.pending.i);
     if (p.cash < t.price) return 'Not enough cash.';
     p.cash -= t.price;
+    s.fx.pays.push({ from: p.id, to: null, amt: t.price, buy: t.i });
     s.props[t.i] = { owner: p.id, houses: 0, mort: false };
     log(s, `${p.name} bought ${t.name} for ${fmt(t.price)}.`);
     s.pending = null; s.phase = after(s);
@@ -1019,6 +1055,7 @@ const ACTIONS = {
     const w = au.by && P(s, au.by);
     if (w && !w.bankrupt && w.cash >= au.high) {
       w.cash -= au.high;
+      s.fx.pays.push({ from: w.id, to: null, amt: au.high, buy: t.i });
       s.props[t.i] = { owner: w.id, houses: 0, mort: false };
       log(s, `${w.name} won ${t.name} at auction for ${fmt(au.high)}.`);
     } else log(s, `Nobody bought ${t.name}. It stays with the bank.`);
@@ -1032,6 +1069,7 @@ const ACTIONS = {
     if (!p.inJail || s.phase !== 'roll') return 'You can only pay the fine before rolling.';
     if (p.cash < JAIL_FINE) return 'Not enough cash.';
     pay(s, p, JAIL_FINE, null, true);
+    s.fx.pays.push({ from: p.id, to: null, amt: JAIL_FINE, dst: s.settings.vacationCash ? 'pot' : null });
     p.inJail = false; p.jailTurns = 0;
     log(s, `${p.name} paid ${fmt(JAIL_FINE)} bail and left ${jailName(s)}.`);
   },
@@ -1052,6 +1090,7 @@ const ACTIONS = {
     const e = buildCheck(s, p.id, a.i); if (e) return e;
     const t = T(s, a.i);
     p.cash -= t.house; s.props[a.i].houses++;
+    s.fx.pays.push({ from: p.id, to: null, amt: t.house, buy: a.i });
     log(s, `${p.name} built ${s.props[a.i].houses === 5 ? 'a hotel' : 'a house'} on ${t.name}.`);
   },
   sell(s, a) {
@@ -1061,6 +1100,7 @@ const ACTIONS = {
     const t = T(s, a.i);
     const was = s.props[a.i].houses;
     s.props[a.i].houses--; p.cash += t.house / 2;
+    s.fx.pays.push({ from: null, to: p.id, amt: t.house / 2, src: a.i });
     log(s, `${p.name} sold ${was === 5 ? 'a hotel' : 'a house'} on ${t.name} for ${fmt(t.house / 2)}.`);
   },
   mortgage(s, a) {
@@ -1069,6 +1109,7 @@ const ACTIONS = {
     const e = mortgageCheck(s, p.id, a.i); if (e) return e;
     const t = T(s, a.i);
     s.props[a.i].mort = true; p.cash += t.price / 2;
+    s.fx.pays.push({ from: null, to: p.id, amt: t.price / 2, src: a.i });
     log(s, `${p.name} mortgaged ${t.name} for ${fmt(t.price / 2)}.`);
   },
   unmortgage(s, a) {
@@ -1078,6 +1119,7 @@ const ACTIONS = {
     const e = unmortgageCheck(s, p.id, a.i); if (e) return e;
     const t = T(s, a.i);
     p.cash -= unmortgageCost(t); s.props[a.i].mort = false;
+    s.fx.pays.push({ from: p.id, to: null, amt: unmortgageCost(t), buy: a.i });
     log(s, `${p.name} paid off the mortgage on ${t.name}.`);
   },
   endTurn(s, a) {
@@ -1091,6 +1133,27 @@ const ACTIONS = {
     const p = P(s, a.by);
     if (!p || p.bankrupt || !canAct(s, a, a.by)) return 'Not allowed.';
     goBankrupt(s, p, p.cash < 0 ? 'went bankrupt' : 'left the game');
+  },
+  fly(s, a) {
+    const p = cur(s);
+    if (!p || p.id !== a.by || !canAct(s, a, a.by)) return 'It is not your turn.';
+    if (!s.flight || s.flight.pid !== p.id || p.pos !== s.flight.from) return 'No flight available.';
+    if (s.phase !== 'done' && s.phase !== 'roll') return 'Finish this step first.';
+    const to = a.to | 0;
+    if (to < 0 || to >= B(s).n || to === p.pos) return 'Pick a different destination.';
+    const dt = T(s, to);
+    if (dt.type === 'gojail' || dt.type === 'jail') return 'You cannot fly there.';
+    if (p.cash < FLIGHT_FARE) return 'Not enough cash for the flight.';
+    pay(s, p, FLIGHT_FARE, null, true);
+    s.fx.pays.push({ from: p.id, to: null, amt: FLIGHT_FARE, dst: s.settings.vacationCash ? 'pot' : null });
+    s.flight = null;
+    log(s, `${p.name} flew to ${dt.name} ✈`);
+    const wasPhase = s.phase;
+    s.phase = 'landing';
+    s.fx.fly = true;
+    moveForwardTo(s, p, to);
+    land(s, p);
+    if (s.phase === 'landing') s.phase = wasPhase === 'roll' ? 'roll' : after(s);
   },
   kickIdle(s, a) {
     const c = cur(s), me = P(s, a.by);
@@ -1186,6 +1249,7 @@ function offerCheck(s, p, off) {
 }
 function transfer(s, from, to, off) {
   from.cash -= off.cash; to.cash += off.cash;
+  if (off.cash) s.fx.pays.push({ from: from.id, to: to.id, amt: off.cash });
   off.props.forEach(i => { s.props[i].owner = to.id; });
   for (let k = 0; k < off.cards; k++) to.jailCards.push(from.jailCards.pop());
 }
@@ -1316,11 +1380,16 @@ function botAction(s, bid) {
     const reserve = completesGroup(s, bid, t.i) ? 0 : 100;
     return { type: p.cash - t.price >= reserve ? 'buy' : 'decline', by: bid };
   }
+  if (s.flight && s.flight.pid === bid && p.cash > 400) {
+    const target = B(s).tiles.find(t => t.type === 'prop' && !s.props[t.i] && completesGroup(s, bid, t.i) && t.price <= p.cash - 150)
+      || B(s).tiles.find(t => t.type === 'prop' && !s.props[t.i] && t.price <= p.cash - 300);
+    if (target) return { type: 'fly', by: bid, to: target.i };
+  }
   if (s.phase === 'done') return botBuild(s, p) || botUnmortgage(s, p) || { type: 'endTurn', by: bid };
   return null;
 }
 
-if (typeof module !== 'undefined') module.exports = { reduce, newGame, botAction, buildBoard, fmt, BOARDS, cur, P, T, rentFor };
+if (typeof module !== 'undefined') module.exports = { reduce, newGame, botAction, buildBoard, fmt, BOARDS, cur, P, T, rentFor, ownsAllAirports };
 
 /* =====================================================================
    NAIJA LANDLORD — interface, animation, local + online play
@@ -1665,6 +1734,18 @@ const Beat = {
   },
 };
 
+function diceSound(ms) {
+  if (ui.muted) return;
+  const n = Math.round(ms / 140);
+  for (let i = 0; i < n; i++) setTimeout(() => sound('tick'), i * 140 * (1 + i / n));
+  setTimeout(() => sound('dice'), ms - 250);
+}
+function toastDice(t) {
+  const c = $('#cmain'); if (!c) return;
+  const el = document.createElement('div'); el.className = 'dbl'; el.textContent = t;
+  c.parentNode.appendChild(el); setTimeout(() => el.remove(), 1400);
+}
+
 /* ---------------- toast ---------------- */
 let toastT;
 function toast(msg, err) {
@@ -1768,7 +1849,7 @@ function tileHTML(t, k, boardKey) {
   if (pl.side === 'corner') return `<div class="tile corner c-${t.type}${t.name.length > 9 ? ' long' : ''}" data-i="${t.i}" style="${pos}" role="button" tabindex="-1" aria-label="${esc(t.name)}">${cornerHTML(t)}</div>`;
   let inner;
   if (t.type === 'prop') inner = `<div class="band" style="--gc:${GROUPS[t.group].color}"><div class="hs"></div></div><div class="t-art">${propArt(boardKey, t.key)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
-  else if (t.type === 'transport' || t.type === 'utility') inner = `<div class="t-ico">${tileIcon(t)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
+  else if (t.type === 'transport' || t.type === 'utility') inner = `<div class="t-ico">${tileIcon(t)}</div><div class="t-name">${esc(t.name.replace('International', "Int'l"))}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
   else if (t.type === 'tax') inner = `<div class="t-ico">${tileIcon(t)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">Pay ${fmt(t.amount)}</div>`;
   else if (t.type === 'rest') inner = `<div class="t-ico" style="flex:1;align-items:center">${tileIcon(t)}</div><div class="t-name" style="flex:none;padding-bottom:3px">${esc(t.name)}</div>`;
   else inner = `<div class="t-name" style="font-family:var(--f-display);font-weight:400;color:${t.type === 'wahala' ? '#C0331E' : '#0B7A47'}">${esc(t.name)}</div><div class="t-ico" style="flex:1;align-items:center">${tileIcon(t)}</div>`;
@@ -1827,11 +1908,15 @@ function dieHTML() {
   return `<div class="die" style="--d:max(30px, calc(var(--u)*.95))">${[1, 2, 3, 4, 5, 6].map(v =>
     `<div class="face" style="transform:${FACE_T[v]} translateZ(calc(var(--d) / 2))">${Array.from({ length: 9 }, (_, i) => PIPS[v].includes(i) ? `<i${v === 1 ? ' class="red"' : ''}></i>` : '<span></span>').join('')}</div>`).join('')}</div>`;
 }
-function setDice(root, vals, spins) {
+function setDice(root, vals, spins, ms) {
+  const box = $('.dice', root);
+  if (box && ms) { box.classList.remove('rolling'); void box.offsetWidth; box.style.setProperty('--roll', ms + 'ms'); box.classList.add('rolling'); setTimeout(() => box.classList.remove('rolling'), ms); }
   $$('.die', root).forEach((d, k) => {
     const [x, y] = SHOW[vals[k]] || [0, 0];
-    const sx = spins * 360 + (k ? 360 : 0), sy = spins * 360;
-    d.style.transform = `rotateX(${x - sx}deg) rotateY(${y + sy}deg)`;
+    const turns = ms ? Math.round(ms / 450) : 0;
+    const sx = (spins * 4 + turns) * 360 + (k ? 360 : 0), sy = (spins * 4 + turns + k) * 360;
+    d.style.transition = ms ? `transform ${ms}ms cubic-bezier(.12,.62,.18,1)` : 'none';
+    d.style.transform = `rotateX(${x - sx}deg) rotateY(${y + sy}deg) rotateZ(${k ? 360 * turns : -360 * turns}deg)`;
     d.style.width = d.style.height = 'var(--d)';
   });
 }
@@ -2252,7 +2337,7 @@ async function applyState(s) {
   if (first) {
     s.players.forEach(p => V.pos[p.id] = p.pos);
     V.dice = s.dice; V.rollSeq = s.rollSeq; V.fxSeq = s.fx.seq; V.cardSeq = s.cardSeq || 0;
-    renderAll(s); setDice($('#game'), V.dice, V.rollSeq);
+    renderAll(s); setDice($('#game'), V.dice, V.rollSeq, 0);
     if (s.status === 'ended') V.winShown = s.winner;
     return;
   }
@@ -2261,18 +2346,24 @@ async function applyState(s) {
     V.fxSeq = s.fx.seq;
     if (s.rollSeq !== V.rollSeq) {
       V.rollSeq = s.rollSeq; V.dice = s.dice;
-      ui.animating = true; renderCenter(); setDice($('#game'), V.dice, V.rollSeq);
-      sound('dice'); await sleep(950);
+      const roller = P(s, s.fx.by);
+      const ms = roller && roller.bot ? 1800 : 3800;   // humans get the full suspense; bots roll faster
+      ui.animating = true; renderCenter(); setDice($('#game'), V.dice, V.rollSeq, ms);
+      diceSound(ms); await sleep(ms + 150);
+      const db = $('#game .dice'); if (db) { db.classList.add('landed'); setTimeout(() => db.classList.remove('landed'), 700); }
+      if (s.dice[0] === s.dice[1]) toastDice('Doubles!');
+      await sleep(250);
     }
     if (s.fx.moves && s.fx.moves.length) {
       ui.animating = true; renderCenter();
       for (const m of s.fx.moves) await animateMove(s, m);
     }
-    (s.fx.pays || []).forEach(pm => {
-      if (pm.from) floatMoney(s, pm.from, -pm.amt);
-      if (pm.to) floatMoney(s, pm.to, pm.amt);
-    });
-    if ((s.fx.pays || []).length) sound((s.fx.pays || []).some(pm => pm.to === ui.me) ? 'cash' : 'tick');
+    const pays = (s.fx.pays || []).filter(pm => pm.amt > 0);
+    if (pays.length) {
+      renderPlayers(prev, true);
+      await flyAllMoney(s, pays);
+      sound(pays.some(pm => pm.to === ui.me || (ui.mode === 'local' && pm.to)) ? 'cash' : 'tick');
+    }
   }
   s.players.forEach(p => V.pos[p.id] = p.pos);
   ui.animating = false;
@@ -2283,20 +2374,58 @@ async function applyState(s) {
   if (s.status === 'ended' && V.winShown !== s.winner) { V.winShown = s.winner; showWinner(s); }
 }
 
+function tokenXY(s, pos) {
+  const b = buildBoard(s.settings.board), W = b.k + 2 * C_UNITS, pl = tilePlace(pos, b.k);
+  return { x: pl.x / W * 100, y: pl.y / W * 100 };
+}
+async function hop(el, from, to, ms, height) {
+  const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+  el.style.transition = 'none';
+  const anim = el.animate([
+    { left: from.x + '%', top: from.y + '%', transform: 'translate(-50%,-50%) scale(1,1)' },
+    { left: from.x + '%', top: from.y + '%', transform: 'translate(-50%,-50%) scale(1.15,.85)', offset: .12 },
+    { left: mid.x + '%', top: mid.y + '%', transform: `translate(-50%,calc(-50% - ${height}px)) scale(1.12)`, offset: .55 },
+    { left: to.x + '%', top: to.y + '%', transform: 'translate(-50%,-50%) scale(1.2,.8)', offset: .88 },
+    { left: to.x + '%', top: to.y + '%', transform: 'translate(-50%,-50%) scale(1,1)' },
+  ], { duration: ms, easing: 'ease-in-out' });
+  el.style.left = to.x + '%'; el.style.top = to.y + '%';
+  try { await anim.finished; } catch (e) {}
+}
+function flashTile(i, cls) {
+  const t = $(`#boardWrap .tile[data-i="${i}"]`); if (!t) return;
+  t.classList.remove(cls); void t.offsetWidth; t.classList.add(cls);
+  setTimeout(() => t.classList.remove(cls), 900);
+}
 async function animateMove(s, m) {
   const V = ui.view;
-  if (m.direct) { V.pos[m.pid] = m.to; placeTokens(s); await sleep(450); return; }
+  const el = $(`#boardWrap .token[data-pid="${m.pid}"]`);
   const n = buildBoard(s.settings.board).n;
-  V.pos[m.pid] = m.from;
-  const dir = m.steps > 0 ? 1 : -1;
-  const count = Math.abs(m.steps);
-  const per = count > 14 ? 90 : 165;
-  for (let k = 0; k < count; k++) {
-    V.pos[m.pid] = ((V.pos[m.pid] + dir) % n + n) % n;
-    placeTokens(s, m.pid); sound('tick');
-    await sleep(per);
+  if (!el) { V.pos[m.pid] = m.direct ? m.to : ((m.from + m.steps) % n + n) % n; return; }
+  el.classList.add('moving'); el.classList.remove('cur');
+  if (m.direct || s.fx.fly) {
+    // one long jump across the board (sent to jail, or a flight)
+    const to = m.direct ? m.to : ((m.from + m.steps) % n + n) % n;
+    if (s.fx.fly && !m.direct) { el.classList.add('flying'); sound('turn'); }
+    await hop(el, tokenXY(s, m.from), tokenXY(s, to), s.fx.fly ? 1400 : 900, s.fx.fly ? 120 : 70);
+    el.classList.remove('flying');
+    V.pos[m.pid] = to; flashTile(to, 'landed');
+  } else {
+    const dir = m.steps > 0 ? 1 : -1, count = Math.abs(m.steps);
+    const per = count > 14 ? 150 : count > 8 ? 200 : 240;
+    let pos = m.from;
+    for (let k = 0; k < count; k++) {
+      const next = ((pos + dir) % n + n) % n;
+      const last = k === count - 1;
+      await hop(el, tokenXY(s, pos), tokenXY(s, next), last ? per + 120 : per, last ? 26 : 16);
+      pos = next; V.pos[m.pid] = pos;
+      sound('tick');
+      if (next === 0 && dir > 0) flashTile(0, 'passgo');
+    }
+    flashTile(pos, 'landed');
   }
-  await sleep(120);
+  el.classList.remove('moving');
+  placeTokens(s);
+  await sleep(160);
 }
 
 /* ---------------- game screen ---------------- */
@@ -2336,6 +2465,7 @@ function buildGameScreen(s) {
 }
 
 function renderAll(s) {
+  if (!s.flight && ui.flyPick) { ui.flyPick = false; const bd = $('#boardWrap .board'); if (bd) bd.classList.remove('picking'); }
   renderChat(s);
   renderBoardState(s);
   placeTokens(s);
@@ -2412,6 +2542,77 @@ function placeTokens(s, movingId) {
   });
 }
 
+/* where money comes from or goes to on screen */
+function moneySpot(s, who, kind, tileIdx) {
+  if (who) {
+    const card = $(`#plist .pl[data-pid="${who}"] .cash`);
+    const r = card && card.getBoundingClientRect();
+    if (r && r.width && r.bottom > 0 && r.top < innerHeight) return { x: r.left + r.width / 2, y: r.top + r.height / 2, card: card.closest('.pl') };
+    const tok = $(`#boardWrap .token[data-pid="${who}"]`); const tr = tok && tok.getBoundingClientRect();
+    if (tr && tr.width) return { x: tr.left + tr.width / 2, y: tr.top + tr.height / 2 };
+  }
+  let tile = null;
+  const b = buildBoard(s.settings.board);
+  if (kind === 'pot') tile = b.park; else if (kind === 'go') tile = 0; else if (typeof tileIdx === 'number') tile = tileIdx;
+  if (tile != null) { const t = $(`#boardWrap .tile[data-i="${tile}"]`); const r = t && t.getBoundingClientRect(); if (r) return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+  const c = $('#boardWrap .center'); const r = c && c.getBoundingClientRect();
+  return r ? { x: r.left + r.width / 2, y: r.top + r.height * .3 } : { x: innerWidth / 2, y: innerHeight / 2 };
+}
+function flyMoney(from, to, amt, delay) {
+  return new Promise(res => {
+    const notes = Math.min(7, 2 + Math.floor(amt / 120));
+    let left = notes;
+    for (let i = 0; i < notes; i++) {
+      const n = document.createElement('div');
+      n.className = 'note'; n.textContent = '₦';
+      document.body.appendChild(n);
+      const jx = (Math.random() - .5) * 40, jy = (Math.random() - .5) * 30, lift = 60 + Math.random() * 60;
+      const midX = (from.x + to.x) / 2 + jx, midY = Math.min(from.y, to.y) - lift;
+      const anim = n.animate([
+        { transform: `translate(${from.x}px,${from.y}px) translate(-50%,-50%) rotate(${jx}deg) scale(.6)`, opacity: 0 },
+        { transform: `translate(${from.x + jx * .3}px,${from.y + jy * .3}px) translate(-50%,-50%) rotate(${jx}deg) scale(1)`, opacity: 1, offset: .12 },
+        { transform: `translate(${midX}px,${midY}px) translate(-50%,-50%) rotate(${-jx * 2}deg) scale(1.1)`, opacity: 1, offset: .55 },
+        { transform: `translate(${to.x}px,${to.y}px) translate(-50%,-50%) rotate(0deg) scale(.5)`, opacity: .2 },
+      ], { duration: 820, delay: delay + i * 90, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' });
+      anim.onfinish = () => { n.remove(); if (--left === 0) res(); };
+    }
+    if (!notes) res();
+  });
+}
+async function flyAllMoney(s, pays) {
+  const jobs = pays.slice(0, 8).map((pm, k) => {
+    const from = moneySpot(s, pm.from, pm.src, typeof pm.src === 'number' ? pm.src : null);
+    const to = moneySpot(s, pm.to, pm.dst, typeof pm.buy === 'number' ? pm.buy : null);
+    if (from.card) pulseCard(from.card, 'loss', -pm.amt);
+    const p = flyMoney(from, to, pm.amt, k * 160);
+    p.then(() => { if (to.card) pulseCard(to.card, 'gain', pm.amt); });
+    return p;
+  });
+  await Promise.all(jobs);
+}
+function pulseCard(card, cls, amt) {
+  card.classList.remove('gain', 'loss'); void card.offsetWidth; card.classList.add(cls);
+  const tag = document.createElement('span'); tag.className = 'delta ' + cls; tag.textContent = (amt > 0 ? '+' : '') + fmt(amt);
+  card.appendChild(tag); setTimeout(() => tag.remove(), 1500);
+  setTimeout(() => card.classList.remove(cls), 900);
+}
+/* count the cash shown on each player card towards its new value */
+function countCash(s) {
+  ui.cashShown = ui.cashShown || {};
+  s.players.forEach(p => {
+    const el = $(`#plist .pl[data-pid="${p.id}"] .cash`); if (!el) return;
+    const from = ui.cashShown[p.id], to = p.cash;
+    ui.cashShown[p.id] = to;
+    if (from == null || from === to) { el.textContent = fmt(to); return; }
+    const t0 = performance.now(), d = 700;
+    const step = now => {
+      const k = Math.min(1, (now - t0) / d), v = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+      el.textContent = fmt(v); el.classList.toggle('neg', v < 0);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
 function floatMoney(s, pid, amt) {
   const tok = $(`#boardWrap .token[data-pid="${pid}"]`);
   if (!tok || tok.hidden) return;
@@ -2491,6 +2692,10 @@ function renderCenter() {
     } else if (s.phase === 'done') {
       btns += `<button class="btn primary big" data-act="endTurn" ${debt ? 'disabled' : ''}>End turn</button>`;
     }
+    if (s.flight && s.flight.pid === c.id && (s.phase === 'done' || s.phase === 'roll')) {
+      if (ui.flyPick) { h += `<div class="c-sub" style="color:#FFE58A;font-weight:800">✈ Tap any space on the board to fly there.</div>`; btns = `<button class="btn ghost small" data-act="fly-cancel">Cancel flight</button>`; }
+      else btns += `<button class="btn green" data-act="fly-pick" ${c.cash < FLIGHT_FARE ? 'disabled' : ''}>✈ Fly anywhere · ${fmt(FLIGHT_FARE)}</button>`;
+    }
     if (debt) btns += `<button class="btn ghost small" data-tab="props">Manage property</button>` + confirmBtn('bankrupt', 'Declare bankruptcy', 'btn danger small');
     h += `<div class="c-actions">${btns}</div>`;
   }
@@ -2534,7 +2739,8 @@ function confirmBtn(act, label, cls) {
 }
 
 /* players list */
-function renderPlayers(s) {
+function renderPlayers(s, holdCash) {
+  if (!s) return;
   const el = $('#plist'); if (!el) return;
   const curId = s.order[s.turn];
   const ordered = s.order.map(id => P(s, id)).filter(Boolean);
@@ -2547,7 +2753,7 @@ function renderPlayers(s) {
     const others = ['transport', 'utility'].map(ty => { const n = countOwned(s, p.id, ty); return n ? `<span class="chip">${n} ${ty === 'transport' ? 'transport' : 'utility'}</span>` : ''; }).join('');
     const kick = ui.mode === 'online' && isHost() && p.id !== ui.me && !p.bankrupt && s.status === 'playing'
       ? `<button class="btn ghost small kick" data-confirm="kick:${p.id}">${ui.confirm === 'kick:' + p.id ? 'Confirm' : 'Remove'}</button>` : '';
-    return `<div class="pl ${p.id === curId && s.status === 'playing' ? 'turn' : ''} ${p.bankrupt ? 'out' : ''}">
+    return `<div class="pl ${p.id === curId && s.status === 'playing' ? 'turn' : ''} ${p.bankrupt ? 'out' : ''}" data-pid="${p.id}">
       <div class="avatar" style="--pc:${p.color}">${p.token}</div>
       <div style="min-width:0"><div class="nm">${esc(p.name)}</div>
         <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? `<span class="chip r">${esc(J())}</span>` : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${others}</div></div>
@@ -2556,6 +2762,9 @@ function renderPlayers(s) {
     </div>`;
   }).join('');
   const ri = $('#roomInfo');
+  ui.cashShown = ui.cashShown || {};
+  if (holdCash) s.players.forEach(p => { ui.cashShown[p.id] = p.cash; });
+  else countCash(s);
   if (ri) ri.innerHTML = ui.mode === 'online' ? `<div class="card" style="padding:12px;gap:4px"><span class="lbl">Room code</span><div style="display:flex;align-items:center;gap:8px"><span class="code" style="font-size:1.6rem">${esc(s.code)}</span><button class="btn ghost small" data-act="copy-code">Copy</button></div>${!P(s, ui.me) ? '<span class="small muted">You are watching this game.</span>' : ''}</div>` : '';
 }
 
@@ -2675,6 +2884,7 @@ function rulesTab(s, me) {
       <dt>Mortgages</dt><dd>${yes(st.mortgage)}</dd>
       <dt>Build evenly</dt><dd>${yes(st.evenBuild)}</dd>
     </dl>
+    ${buildBoard(st.board).tiles.filter(x => x.air).length > 1 ? `<p class="small" style="margin:0"><b>✈ Airline perk:</b> own every airport and their rent doubles. Land on one of your airports and you can fly to any space on the board for ${fmt(FLIGHT_FARE)}.</p>` : ''}
     <p class="small muted">Roll doubles to go again; three doubles in a row sends you to ${esc(J())}. There, roll doubles, pay ${fmt(JAIL_FINE)} bail, or use a free card. After three failed tries you pay bail and move. Own a whole colour set to build houses, then a hotel. Transport rent doubles with each stop you own. Utility rent is 4× the dice with one, 10× with two${st.board === 'mega' ? ', 20× with three' : ''}. If you can't pay, sell or mortgage. If that's not enough, you're bankrupt.</p>
     ${p && s.status === 'playing' ? confirmBtn('forfeit', 'Leave game and give up', 'btn danger small') : ''}
   </div>`;
@@ -2775,6 +2985,7 @@ function openDeed(i) {
       if (s.settings.doubleRent) rows += `<tr><td>Full set, no houses</td><td>${fmt(t.rent[0] * 2)}</td></tr>`;
     } else if (t.type === 'transport') {
       rows = [1, 2, 3, 4].map(n => `<tr><td>Own ${n} transport stop${n > 1 ? 's' : ''}</td><td>${fmt(25 * Math.pow(2, n - 1))}</td></tr>`).join('');
+      if (t.air && buildBoard(board).tiles.filter(x => x.air).length > 1) rows += `<tr class="cur"><td colspan="2">✈ Own every airport: airport rent doubles, and landing on your own airport lets you fly to any space for ${fmt(FLIGHT_FARE)}.</td></tr>`;
     } else {
       rows = `<tr><td>Own 1 utility</td><td>4× dice</td></tr><tr><td>Own 2 utilities</td><td>10× dice</td></tr>${board === 'mega' ? '<tr><td>Own 3 utilities</td><td>20× dice</td></tr>' : ''}`;
     }
@@ -2899,7 +3110,10 @@ document.addEventListener('click', e => {
     else if (k.startsWith('kick:')) dispatch({ type: 'kick', by: ui.me, target: k.slice(5) });
     return;
   }
-  if (el.classList.contains('tile') && $('#boardWrap') && $('#boardWrap').contains(el)) { openDeed(+el.dataset.i); return; }
+  if (el.classList.contains('tile') && $('#boardWrap') && $('#boardWrap').contains(el)) {
+    if (ui.flyPick && s && s.flight) { ui.flyPick = false; $('#boardWrap .board').classList.remove('picking'); dispatch({ type: 'fly', by: cur(s).id, to: +el.dataset.i }); return; }
+    openDeed(+el.dataset.i); return;
+  }
   if (el.dataset.deed != null) { openDeed(+el.dataset.deed); return; }
   if (el.dataset.tab) { ui.tab = el.dataset.tab; renderSide(); return; }
   if (el.dataset.bid) { dispatch({ type: 'bid', by: el.dataset.by, amount: +el.dataset.bid }); return; }
@@ -2959,6 +3173,8 @@ document.addEventListener('click', e => {
     case 'mute': ui.muted = !ui.muted; savePrefs(); el.innerHTML = ui.muted ? ICONS.mute : ICONS.sound; if (!ui.muted) sound('tick'); break;
     case 'close-modal': closeModal(); break;
     case 'cancelCounter': ui.draft = null; renderSide(); break;
+    case 'fly-pick': ui.flyPick = true; $('#boardWrap .board').classList.add('picking'); renderCenter(); break;
+    case 'fly-cancel': ui.flyPick = false; $('#boardWrap .board').classList.remove('picking'); renderCenter(); break;
     case 'kickIdle': { const c = cur(s); if (c) dispatch({ type: 'kickIdle', by: ui.me, target: c.id }); break; }
     case 'quit-confirm': {
       closeModal();
