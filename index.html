@@ -319,11 +319,6 @@ h1,h2,h3{text-wrap:balance; margin:0}
 
 #music{position:fixed; left:calc(16px + env(safe-area-inset-left, 0px)); bottom:calc(16px + env(safe-area-inset-bottom, 0px)); z-index:40; display:flex; flex-direction:column; align-items:flex-start; gap:8px; pointer-events:none}
 #music > *{pointer-events:auto}
-#ytwrap{width:240px; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000; border:2px solid var(--black); box-shadow:0 10px 26px rgba(0,0,0,.5)}
-#ytwrap.small{width:150px}
-#ytwrap.off{display:none}
-#ytwrap iframe, #ytbox{width:100%; height:100%; display:block; border:0}
-#ytscanwrap{position:fixed; left:-9999px; top:0; width:2px; height:2px; overflow:hidden}
 .mhint{background:var(--fg); color:var(--ink); font-weight:800; font-size:.85rem; padding:.45em .8em; border-radius:99px; box-shadow:0 8px 20px rgba(0,0,0,.4); animation:bob 1.4s ease-in-out infinite}
 .mfab{display:flex; align-items:center; gap:6px; border:2px solid var(--black); background:var(--danfo); color:var(--black); font-weight:800; border-radius:99px; padding:.55em 1em; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,.4)}
 .mfab svg{width:18px; height:18px}
@@ -332,7 +327,14 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .mdock[data-closed]{transform:translateY(20px); opacity:0; pointer-events:none; visibility:hidden}
 .now{display:grid; gap:2px; background:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:8px 10px}
 .now b{font-size:.92rem}
-@media (max-width:480px){ #ytwrap{width:180px} #ytwrap.small{width:120px} }
+
+.mfab .live{font-style:normal; font-size:.62rem; font-weight:900; letter-spacing:.08em; background:#D4252D; color:#fff; border-radius:4px; padding:.1em .35em}
+.mfab span{max-width:46vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.slist{display:grid; gap:6px; max-height:230px; overflow:auto; padding-right:2px}
+.sta{text-align:left; border:1.5px solid var(--line); background:var(--ink); color:var(--fg); border-radius:10px; padding:.45em .65em; cursor:pointer; font-weight:700; font-size:.88rem; display:grid}
+.sta small{color:var(--muted); font-weight:600; font-size:.74rem}
+.sta.on{border-color:var(--danfo); background:var(--ink-4)}
+.sta:disabled{cursor:default; opacity:.7}
 .toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); background:var(--fg); color:var(--ink); padding:.7em 1.1em; border-radius:12px; font-weight:700; z-index:60; box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:calc(100% - 32px); text-align:center}
 .toast.err{background:#FFD6D7; color:#5a0f14}
 
@@ -1393,177 +1395,152 @@ function sound(kind) {
   } catch (e) {}
 }
 
-/* ---------------- music ----------------
-   A shuffled radio of Naija songs (old school and latest) from YouTube playlists.
-   Songs play through the official YouTube player. The playlists below are kept up to date
-   by their owners, so new releases show up on their own. To add more, paste a playlist id
-   (the part after "list=") or a single video id (the part after "v=") into MUSIC_BANK. */
-var EMBEDS_OK = false;
-const MUSIC_BANK = {
-  latest: [
-    'PLSlOfTctV7-6MHkw50_stmsoG96cNh3MY',   // Nigeria Songs 2026 · Top Naija Music
-    'PLJYyuMTDI-idzy2eKxq16k5_RKD3odJ-a',   // Afrobeat Hits 2026
-    'PLRC8ybkwEebo10a7DZnfqz_RIcvSe1ARE',   // New Naija Afrobeat Songs 2026
-    'PLJYyuMTDI-iepsUos_KlQkDvA5JU3pd4c',   // Naija Music Videos 2026
-    'PL7mxZ8M5hvaJABuQV_qzUnnPZNuZ7fhXT',   // Nigeria Songs 2026 (YouTube Music)
-    'PLw3G6ga8QU5MG7i3qUJfty4fCLzmqlZxV',   // Afrobeats Hits
-  ],
-  oldschool: [
-    'PLiA85_8V5VsupQsfI_l8pF4L-dVlw4Zqt',   // Nigerian throwback / old music videos
-    'PL0emhcNGrdTR25of66ZfyoQMxABm9F9uy',   // Naija R&B throwbacks
-    'RDCLAK5uy_lCiFjt1A8f1yPN5XBWJtKuLZrguFE08xU', // Throwback Naija Party
-    'RDCLAK5uy_mhgTbkDErjq7nAfykXMieB1wdueoZu_Mo', // Naija 90s Hits
-    'PLHMCxjdQOGzVT9u0a31G9bsjY_6ye9W_i',   // Top Nigerian Mix
-  ],
-  songs: [],                                 // single video ids that should always be in the mix
+/* ---------------- music: live Naija radio ----------------
+   Real Nigerian and Afrobeats radio stations, streamed live. The list comes from the free
+   public Radio Browser directory (radio-browser.info), so new stations appear by themselves.
+   Live radio is the same moment for everyone, so a whole room hears the same song together:
+   the host picks the station and everyone else tunes in to it. */
+var EMBEDS_OK = false;   // true in the web build; the claude.ai page can only play the Game beat
+const RB_HOSTS = ['https://de1.api.radio-browser.info', 'https://de2.api.radio-browser.info', 'https://fi1.api.radio-browser.info', 'https://all.api.radio-browser.info'];
+const RB_Q = '&order=clickcount&reverse=true&hidebroken=true&limit=';
+const RADIO_QUERIES = {
+  naija: ['/json/stations/search?countrycode=NG' + RB_Q + '120'],
+  afro: ['/json/stations/search?tag=afrobeats' + RB_Q + '60', '/json/stations/search?tag=afrobeat' + RB_Q + '40', '/json/stations/search?tag=amapiano' + RB_Q + '25'],
+  oldschool: ['/json/stations/search?tag=highlife' + RB_Q + '40', '/json/stations/search?tag=fuji' + RB_Q + '20', '/json/stations/search?tag=juju' + RB_Q + '20',
+    '/json/stations/search?countrycode=NG&tag=oldies' + RB_Q + '20', '/json/stations/search?countrycode=NG&name=throwback' + RB_Q + '20'],
 };
-const MODES = { mix: 'Mix', latest: 'Latest', oldschool: 'Old school', beat: 'Game beat' };
-const mpref = Object.assign({ on: true, mode: 'mix', vol: 70, small: false }, LS.get('nl-music2') || {});
-const music = {
-  open: false, unlocked: false, player: null, scanner: null, ready: false, apiLoading: false,
-  bank: [], bankMode: null, scanning: false, current: null, title: '', state: -1,
-  follow: false, followAt: 0, bad: new Set(), history: [], waitT: null,
-};
-function saveMusic() { LS.set('nl-music2', mpref); }
+const MODES = { naija: 'Naija stations', afro: 'Afrobeats', oldschool: 'Old school', beat: 'Game beat' };
+const mpref = Object.assign({ on: true, mode: 'naija', vol: 70 }, LS.get('nl-music3') || {});
+if (!MODES[mpref.mode]) mpref.mode = 'naija';
+const music = { open: false, unlocked: false, audio: null, stations: {}, loading: false, current: null, follow: false, status: '', tried: new Set(), stallT: null, lastRoomTrack: null };
+function saveMusic() { LS.set('nl-music3', mpref); }
 const shuffleOK = () => !music.follow;
+function setStatus(t) { music.status = t; const el = $('#mstatus'); if (el) el.textContent = t; }
 
 function musicHTML() {
-  const yt = EMBEDS_OK && mpref.mode !== 'beat';
+  const radio = EMBEDS_OK && mpref.mode !== 'beat';
   const inRoom = ui.mode === 'online' && ui.state;
   const hostCtl = !inRoom || ui.state.hostId === ui.me;
   const modes = Object.entries(MODES).filter(([k]) => EMBEDS_OK || k === 'beat');
-  return `<div id="ytwrap" class="${mpref.on && yt ? '' : 'off'} ${mpref.small ? 'small' : ''}"><div id="ytbox"></div></div>
-  ${mpref.on && !music.unlocked ? '<div class="mhint">🔊 Tap anywhere to turn on the music</div>' : ''}
-  <button class="mfab ${mpref.on ? 'on' : ''}" data-music="toggle" aria-label="Music">${ICONS.music}<span>${mpref.on ? (music.title ? 'Now playing' : 'Music on') : 'Music off'}</span></button>
+  const list = (music.stations[mpref.mode] || []).slice(0, 16);
+  const cur = music.current;
+  return `${mpref.on && !music.unlocked ? '<div class="mhint">🔊 Tap anywhere to turn on the music</div>' : ''}
+  <button class="mfab ${mpref.on ? 'on' : ''}" data-music="toggle" aria-label="Music">${ICONS.music}<span>${mpref.on ? (cur && radio ? esc(cur.n.slice(0, 22)) : 'Music on') : 'Music off'}</span>${mpref.on && cur && radio ? '<i class="live">LIVE</i>' : ''}</button>
   <div class="mdock" ${music.open ? '' : 'data-closed'} role="dialog" aria-label="Music">
     <div style="display:flex;align-items:center;gap:8px"><b style="flex:1">Naija radio</b><button class="btn ghost small" data-music="toggle">Hide</button></div>
-    ${music.title && mpref.on && yt ? `<div class="now"><span class="lbl">Now playing</span><b>${esc(music.title)}</b></div>` : ''}
+    ${radio && cur && mpref.on ? `<div class="now"><span class="lbl">On air</span><b>${esc(cur.n)}</b><small class="muted">${esc(cur.c || '')}</small></div>` : ''}
     <div id="mstatus" class="small" style="color:var(--danfo)">${esc(music.status || '')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn small ${mpref.on ? '' : 'primary'}" data-music="power">${mpref.on ? 'Turn music off' : 'Turn music on'}</button>
-      ${yt && mpref.on ? `<button class="btn small" data-music="skip" ${hostCtl ? '' : 'disabled title="The host picks the songs in this room"'}>Next song ⏭</button>
-      <button class="btn small ghost" data-music="size">${mpref.small ? 'Bigger player' : 'Smaller player'}</button>` : ''}
+      ${radio && mpref.on ? `<button class="btn small" data-music="skip" ${hostCtl ? '' : 'disabled title="The host picks the station in this room"'}>Another station ⏭</button>` : ''}
     </div>
-    <div class="field"><span class="lbl">Station</span><div class="seg">${modes.map(([k, l]) => `<button data-mmode="${k}" class="${mpref.mode === k ? 'on' : ''}" ${hostCtl || k === 'beat' ? '' : 'disabled'}>${l}</button>`).join('')}</div></div>
+    <div class="field"><span class="lbl">Station type</span><div class="seg">${modes.map(([k, l]) => `<button data-mmode="${k}" class="${mpref.mode === k ? 'on' : ''}" ${hostCtl || k === 'beat' ? '' : 'disabled'}>${l}</button>`).join('')}</div></div>
+    ${radio && list.length ? `<div class="field"><span class="lbl">Stations</span><div class="slist">${list.map(s => `<button class="sta ${cur && cur.u === s.u ? 'on' : ''}" data-sta="${esc(s.u)}" ${hostCtl ? '' : 'disabled'}>${esc(s.n)}<small>${esc(s.c || '')}</small></button>`).join('')}</div></div>` : ''}
     <div class="field"><label class="lbl" for="mvol">Volume</label><input type="range" id="mvol" min="0" max="100" step="5" value="${mpref.vol}" style="width:100%"></div>
     <p class="small muted" style="margin:0">${EMBEDS_OK
-      ? (inRoom ? (hostCtl ? 'You are the host, so everyone in this room hears the songs you play.' : 'Everyone in this room hears the same song as the host.') + ' ' : '') + 'Songs come from Naija playlists on YouTube that are updated with new releases.'
-      : 'Real Naija songs play on the web version at naijalandlord.app. Here you get the Game beat, an original Afro groove.'}</p>
+      ? (inRoom ? (hostCtl ? 'You are the host, so everyone in this room hears the station you pick. ' : "Everyone in this room hears the host's station. ") : '') + 'Live Nigerian and Afrobeats radio, so new songs come through by themselves.'
+      : 'Live Naija radio plays on the web version at naijalandlord.app. Here you get the Game beat, an original Afro groove.'}</p>
   </div>`;
 }
 function renderMusic() {
   let root = $('#music');
   if (!root) { root = document.createElement('div'); root.id = 'music'; document.body.appendChild(root); }
-  if (!$('#ytbox', root)) { root.innerHTML = musicHTML(); return; }
-  // keep the YouTube players alive: only redraw the controls around them
-  const wrap = $('#ytwrap', root);
-  const tmp = document.createElement('div'); tmp.innerHTML = musicHTML();
-  $('#ytwrap', tmp).replaceWith(wrap);
-  const yt = EMBEDS_OK && mpref.mode !== 'beat';
-  wrap.className = `${mpref.on && yt ? '' : 'off'} ${mpref.small ? 'small' : ''}`;
-  root.replaceChildren(...tmp.childNodes);
+  const scroll = $('.mdock', root) ? $('.mdock', root).scrollTop : 0;
+  root.innerHTML = musicHTML();
+  const d = $('.mdock', root); if (d) d.scrollTop = scroll;
 }
 
-/* YouTube player: plays whole playlists in shuffle, hopping to a new random playlist when one ends */
-function loadYT() {
-  if (window.YT && window.YT.Player) return Promise.resolve();
-  if (music.apiLoading) return music.apiLoading;
-  music.apiLoading = new Promise(res => {
-    const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { if (prev) prev(); res(); };
-    const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; s.async = true;
-    s.onerror = () => { setStatus('Could not reach YouTube. Check your internet connection.'); res(); };
-    document.head.appendChild(s);
-  });
-  return music.apiLoading;
+/* station directory */
+async function rbFetch(path) {
+  const hosts = RB_HOSTS.slice().sort(() => Math.random() - 0.5);
+  for (const h of hosts) {
+    try {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 7000);
+      const r = await fetch(h + path, { signal: ctl.signal }); clearTimeout(t);
+      if (r.ok) return await r.json();
+    } catch (e) {}
+  }
+  return null;
 }
-function setStatus(t) { music.status = t; const el = $('#mstatus'); if (el) el.textContent = t; }
-function listsFor(mode) {
-  return mode === 'latest' ? MUSIC_BANK.latest : mode === 'oldschool' ? MUSIC_BANK.oldschool : MUSIC_BANK.latest.concat(MUSIC_BANK.oldschool);
+async function loadStations(mode) {
+  if (music.stations[mode] && music.stations[mode].length) return music.stations[mode];
+  const cached = LS.get('nl-radio-' + mode);
+  if (cached && Date.now() - cached.t < 6 * 3600 * 1000 && cached.list.length) { music.stations[mode] = cached.list; return cached.list; }
+  setStatus('Finding stations…');
+  const results = await Promise.all((RADIO_QUERIES[mode] || []).map(rbFetch));
+  const seen = new Map();
+  results.forEach(arr => (arr || []).forEach(s => {
+    const url = s.url_resolved || s.url || '';
+    if (!/^https:\/\//i.test(url) || s.hls === 1 || s.lastcheckok === 0 || seen.has(s.stationuuid)) return;
+    seen.set(s.stationuuid, { u: s.stationuuid, n: String(s.name || 'Radio').trim().slice(0, 48), url, c: [s.state, s.country].filter(Boolean).join(', ').slice(0, 40), k: s.clickcount || 0 });
+  }));
+  const list = Array.from(seen.values()).sort((a, b) => b.k - a.k);
+  if (list.length) { music.stations[mode] = list; LS.set('nl-radio-' + mode, { t: Date.now(), list }); setStatus(''); }
+  else if (cached && cached.list.length) { music.stations[mode] = cached.list; }
+  else setStatus('Could not load the station list. Check your internet, or pick Game beat.');
+  return music.stations[mode] || [];
+}
+
+/* the audio player */
+function audioEl() {
+  if (music.audio) return music.audio;
+  const a = new Audio(); a.preload = 'none'; a.crossOrigin = null;
+  a.addEventListener('playing', () => { clearTimeout(music.stallT); setStatus(music.unlocked ? '' : 'Playing quietly. Tap anywhere to hear it.'); });
+  a.addEventListener('error', () => stationFailed());
+  a.addEventListener('stalled', () => { clearTimeout(music.stallT); music.stallT = setTimeout(stationFailed, 9000); });
+  a.addEventListener('waiting', () => { clearTimeout(music.stallT); music.stallT = setTimeout(stationFailed, 12000); });
+  music.audio = a;
+  return a;
+}
+function tune(st, broadcast) {
+  if (!st) return;
+  const a = audioEl();
+  music.current = st; music.tried.add(st.u);
+  a.src = st.url; a.volume = mpref.vol / 100; a.muted = !music.unlocked;
+  setStatus('Tuning in to ' + st.n + '…');
+  clearTimeout(music.stallT); music.stallT = setTimeout(stationFailed, 12000);
+  const p = a.play(); if (p && p.catch) p.catch(() => { if (!music.unlocked) setStatus(''); });
+  if (broadcast !== false && shuffleOK()) musicRoomBroadcast({ u: st.u, url: st.url, n: st.n, c: st.c });
+  renderMusic();
+}
+function stationFailed() {
+  clearTimeout(music.stallT);
+  if (!mpref.on || mpref.mode === 'beat') return;
+  if (music.follow) { setStatus('The host\'s station is not reachable from here. Retrying…'); setTimeout(() => music.current && tune(music.current, false), 5000); return; }
+  setStatus('That station is off air. Trying another…');
+  nextStation();
+}
+async function nextStation(pickRandomFromTop) {
+  if (!mpref.on || !EMBEDS_OK || mpref.mode === 'beat') return;
+  const list = await loadStations(mpref.mode);
+  if (!list.length) return;
+  let pool = list.filter(s => !music.tried.has(s.u));
+  if (!pool.length) { music.tried.clear(); pool = list; }
+  const top = pool.slice(0, Math.max(8, Math.ceil(pool.length / 3)));
+  tune(top[Math.floor(Math.random() * top.length)]);
 }
 async function startMusic() {
   if (!mpref.on) return;
   if (mpref.mode === 'beat' || !EMBEDS_OK) { if (music.unlocked) Beat.start(); return; }
-  setStatus('Loading Naija radio…');
-  await loadYT();
-  if (!window.YT || !window.YT.Player) return;
-  if (music.player) { if (music.ready && music.state !== 1 && shuffleOK()) nextSong(); return; }
-  music.player = new YT.Player('ytbox', {
-    width: '100%', height: '100%',
-    playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, controls: 1, enablejsapi: 1, origin: location.origin },
-    events: {
-      onReady: () => {
-        music.ready = true;
-        if (!music.unlocked) music.player.mute(); else { music.player.unMute(); music.player.setVolume(mpref.vol); }
-        if (music.pending) { const p = music.pending; music.pending = null; followTrack(p); }
-        else if (shuffleOK()) nextSong();
-      },
-      onStateChange: e => {
-        music.state = e.data;
-        if (e.data === 1) onPlaying();
-        if (e.data === 0) songEnded();
-      },
-      onError: e => {
-        music.errors = (music.errors || 0) + 1;
-        setStatus(`Skipping a song YouTube won't play here (error ${e.data}).`);
-        if (!shuffleOK()) return;
-        if (music.errors > 6) { music.errors = 0; setTimeout(() => nextSong(true), 600); }
-        else setTimeout(() => { try { if (music.inList) music.player.nextVideo(); else nextSong(); } catch (x) { nextSong(true); } }, 600);
-      },
-    },
-  });
+  if (music.follow && music.lastRoomTrack) { followTrack(music.lastRoomTrack); return; }
+  if (music.current && music.audio) { const p = music.audio.play(); if (p && p.catch) p.catch(() => {}); return; }
+  nextStation();
 }
-function onPlaying() {
-  const p = music.player;
-  const d = p.getVideoData ? p.getVideoData() : {};
-  const id = d && d.video_id;
-  music.errors = 0;
-  if (music.inList && !music.shuffled) { music.shuffled = true; try { p.setShuffle(true); } catch (x) {} }
-  if (!music.unlocked) setStatus('Playing quietly. Tap anywhere to hear it.');
-  else setStatus('');
-  if (d && d.title && d.title !== music.title) { music.title = d.title; renderMusic(); }
-  if (id && id !== music.current) {
-    music.current = id;
-    renderMusic();
-    if (shuffleOK()) musicRoomBroadcast({ v: id, t: Date.now() - (p.getCurrentTime ? p.getCurrentTime() * 1000 : 0) });
-  }
-}
-function nextSong(newList) {
-  if (!mpref.on || !music.ready || mpref.mode === 'beat') return;
-  const p = music.player;
-  if (!newList && music.inList) { try { p.nextVideo(); return; } catch (x) {} }
-  const lists = listsFor(mpref.mode).filter(l => l !== music.list);
-  const list = lists[Math.floor(Math.random() * lists.length)] || listsFor(mpref.mode)[0];
-  music.list = list; music.inList = true; music.shuffled = false; music.title = '';
-  setStatus('Loading a playlist…');
-  try { p.loadPlaylist({ list, listType: 'playlist', index: Math.floor(Math.random() * 15) }); }
-  catch (x) { setStatus('YouTube player error. Try Next song.'); }
-  renderMusic();
-}
-function songEnded() {
-  if (shuffleOK()) { nextSong(true); return; }
-  clearTimeout(music.waitT);
-  music.waitT = setTimeout(() => { if (music.state === 0) { music.follow = false; nextSong(true); } }, 10000);
-}
-/* everyone in a room plays the host's song, from the same point */
-function followTrack(tr) {
-  if (!tr || !tr.v) return;
-  music.follow = true; clearTimeout(music.waitT);
-  if (!mpref.on || mpref.mode === 'beat' || !EMBEDS_OK) { music.current = tr.v; return; }
-  if (!music.ready) { music.pending = tr; startMusic(); return; }
-  const at = Math.max(0, (Date.now() - tr.t) / 1000);
-  music.inList = false;
-  if (tr.v !== music.current) { music.current = tr.v; music.title = ''; music.player.loadVideoById({ videoId: tr.v, startSeconds: at }); }
-  else if (music.state !== 1 && music.state !== 3) { music.player.seekTo(at, true); music.player.playVideo(); }
-  renderMusic();
-}
-function musicRoomBroadcast() {}       // replaced in the web build
-function musicCurrent() { return music.current ? { v: music.current, t: Date.now() - ((music.player && music.ready && music.player.getCurrentTime) ? music.player.getCurrentTime() * 1000 : 0) } : null; }
 function stopMusicAll() {
   Beat.stop();
-  if (music.player && music.ready) { try { music.player.stopVideo(); } catch (e) {} }
-  music.title = ''; music.inList = false; music.current = null;
+  if (music.audio) { music.audio.pause(); music.audio.removeAttribute('src'); music.audio.load(); }
+  clearTimeout(music.stallT);
 }
+/* rooms: everyone tunes in to the host's station */
+function followTrack(tr) {
+  if (!tr || !tr.url) return;
+  music.follow = true; music.lastRoomTrack = tr;
+  if (!mpref.on || mpref.mode === 'beat' || !EMBEDS_OK) { renderMusic(); return; }
+  if (!music.current || music.current.u !== tr.u) tune({ u: tr.u, url: tr.url, n: tr.n, c: tr.c }, false);
+  else renderMusic();
+}
+function musicRoomBroadcast() {}       // replaced in the web build
+function musicCurrent() { const c = music.current; return c && mpref.mode !== 'beat' ? { u: c.u, url: c.url, n: c.n, c: c.c } : null; }
 
 /* the first tap anywhere turns the sound on (browsers block sound before that) */
 function unlockAudio() {
@@ -1571,45 +1548,54 @@ function unlockAudio() {
   music.unlocked = true;
   if (mpref.on) {
     if (mpref.mode === 'beat' || !EMBEDS_OK) Beat.start();
-    else if (music.player && music.ready) { music.player.unMute(); music.player.setVolume(mpref.vol); if (music.state !== 1) music.player.playVideo(); }
+    else if (music.audio && music.current) { music.audio.muted = false; music.audio.volume = mpref.vol / 100; const p = music.audio.play(); if (p && p.catch) p.catch(() => tune(music.current, false)); }
     else startMusic();
   }
+  setStatus('');
   renderMusic();
 }
 document.addEventListener('pointerdown', unlockAudio, true);
 document.addEventListener('keydown', unlockAudio, true);
 
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-music],[data-mmode]');
+  const b = e.target.closest('[data-music],[data-mmode],[data-sta]');
   if (!b || b.disabled) return;
+  if (b.dataset.sta) {
+    const st = (music.stations[mpref.mode] || []).find(s => s.u === b.dataset.sta);
+    if (st) { Beat.stop(); tune(st); }
+    return;
+  }
   if (b.dataset.mmode) {
     const m = b.dataset.mmode;
     if (m === mpref.mode) return;
-    mpref.mode = m; saveMusic(); stopMusicAll();
-    if (m === 'beat') { if (music.unlocked && mpref.on) Beat.start(); }
-    else if (music.follow && ui.mode === 'online') { const tr = music.lastRoomTrack; if (tr) { music.current = null; followTrack(tr); } }
-    else if (music.player && music.ready) nextSong(true);
-    else startMusic();
-    renderMusic(); return;
+    mpref.mode = m; saveMusic(); stopMusicAll(); music.current = null; music.tried.clear();
+    if (m === 'beat') { if (music.unlocked && mpref.on) Beat.start(); renderMusic(); }
+    else if (music.follow && music.lastRoomTrack) followTrack(music.lastRoomTrack);
+    else { renderMusic(); loadStations(m).then(() => { renderMusic(); nextStation(); }); }
+    return;
   }
   const k = b.dataset.music;
-  if (k === 'toggle') { music.open = !music.open; const d = $('.mdock'); if (d) d.toggleAttribute('data-closed', !music.open); return; }
+  if (k === 'toggle') {
+    music.open = !music.open;
+    if (music.open && EMBEDS_OK && mpref.mode !== 'beat') loadStations(mpref.mode).then(renderMusic);
+    const d = $('.mdock'); if (d) d.toggleAttribute('data-closed', !music.open);
+    return;
+  }
   if (k === 'power') {
     mpref.on = !mpref.on; saveMusic();
-    if (!mpref.on) { Beat.stop(); if (music.player && music.ready) music.player.mute(); }
+    if (!mpref.on) stopMusicAll();
     else if (mpref.mode === 'beat' || !EMBEDS_OK) Beat.start();
-    else if (music.player && music.ready) { music.player.unMute(); music.player.setVolume(mpref.vol); music.player.playVideo(); }
-    else startMusic();
+    else if (music.follow && music.lastRoomTrack) { music.current = null; followTrack(music.lastRoomTrack); }
+    else if (music.current) tune(music.current, false); else nextStation();
     renderMusic(); return;
   }
-  if (k === 'skip') { nextSong(false); return; }
-  if (k === 'size') { mpref.small = !mpref.small; saveMusic(); renderMusic(); return; }
+  if (k === 'skip') { nextStation(); return; }
 });
 document.addEventListener('input', e => {
   if (e.target.id !== 'mvol') return;
   mpref.vol = +e.target.value; saveMusic();
   Beat.setVol(mpref.vol / 100);
-  if (music.player && music.ready && music.unlocked) music.player.setVolume(mpref.vol);
+  if (music.audio) music.audio.volume = mpref.vol / 100;
 });
 
 /* an original Afrobeats-style groove: kick, shaker, rim, log-drum bass and soft chords */
@@ -2937,6 +2923,7 @@ document.addEventListener('keydown', e => {
 function start(data) {
   renderMusic();
   if (EMBEDS_OK && mpref.on && mpref.mode !== 'beat') startMusic();
+  else if (EMBEDS_OK) loadStations(mpref.mode === 'beat' ? 'naija' : mpref.mode);
   window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ local: ui.mode === 'local' ? ui.state : null }));
   if (data && data.local && data.local.status === 'playing') enterLocal(data.local);
   else showHome();
