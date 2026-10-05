@@ -161,7 +161,7 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .side-l .t-in{transform:translate(-50%,-50%) rotate(90deg)}
 .side-r .t-in{transform:translate(-50%,-50%) rotate(-90deg)}
 .side-t .t-in{flex-direction:column-reverse}
-.band{flex:none; height:24%; background:var(--gc); display:flex; align-items:center; justify-content:center; gap:1px; position:relative; overflow:hidden}
+.band{flex:none; height:27%; background:var(--gc); display:flex; align-items:center; justify-content:center; gap:1px; position:relative; overflow:hidden}
 .band::after{content:''; position:absolute; inset:0; opacity:.22; background:
   radial-gradient(circle at 25% 50%, #fff 0 12%, transparent 13%) 0 0/ calc(var(--u)*.34) 100%,
   linear-gradient(90deg, transparent 46%, rgba(0,0,0,.6) 46% 54%, transparent 54%) 0 0/ calc(var(--u)*.34) 100%}
@@ -172,7 +172,15 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .t-price{flex:none; font-size:calc(var(--u)*.16); font-weight:800; padding-bottom:2px; font-variant-numeric:tabular-nums; color:#3c3f60}
 .t-ico{flex:none; display:flex; justify-content:center; padding-top:2px}
 .t-ico svg{width:calc(var(--u)*.52); height:calc(var(--u)*.52)}
-.own{flex:none; height:9%; background:var(--own)}
+.own{flex:none; height:13%; background:var(--own); display:grid; place-items:center; overflow:hidden; box-shadow:inset 0 1px 0 rgba(0,0,0,.25)}
+.own .emb{font-size:calc(var(--u)*.15); line-height:1; filter:drop-shadow(0 1px 0 rgba(255,255,255,.6))}
+.tiny .own .emb{display:none}
+.hs{align-items:flex-end; justify-content:center; height:100%; padding-bottom:1px}
+.hs .hse{width:calc(var(--u)*.22); height:calc(var(--u)*.24); flex:none; filter:drop-shadow(0 1px 0 rgba(0,0,0,.35))}
+.hs .htl{width:calc(var(--u)*.78); height:calc(var(--u)*.4); flex:none; filter:drop-shadow(0 1px 0 rgba(0,0,0,.4))}
+.plot{display:grid; place-items:center; width:calc(var(--u)*.34); height:calc(var(--u)*.3); background:var(--oc); border:1.5px solid #fff; border-radius:3px; font-size:calc(var(--u)*.19); line-height:1; box-shadow:0 1px 2px rgba(0,0,0,.45); align-self:center}
+.hs.pop{animation:pop .55s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes pop{0%{transform:scale(.2) translateY(30%)} 70%{transform:scale(1.25)} 100%{transform:none}}
 .tile.mort .t-in > *{opacity:.35}
 .tile.mort::after{content:'MORTGAGED'; position:absolute; inset:0; display:grid; place-items:center; font-size:calc(var(--u)*.13); font-weight:800; letter-spacing:.05em; color:#8a1c22; background:repeating-linear-gradient(45deg, rgba(212,37,45,.12) 0 4px, transparent 4px 8px)}
 .tile.mort.side-l::after,.tile.mort.side-r::after{writing-mode:vertical-rl}
@@ -194,6 +202,8 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .c-jail .vis{position:absolute; left:4px; bottom:4px; font-size:calc(var(--u)*.13); font-weight:800; color:#555; text-align:left; line-height:1.05}
 .c-park{background:radial-gradient(circle at 30% 25%, #FFE58A 0 14%, transparent 15%), radial-gradient(circle at 75% 70%, #F7A8C9 0 10%, transparent 11%), var(--tile)}
 .c-park .cn{color:#B3166A}
+.corner.long .cn{font-size:calc(var(--u)*.17)}
+.corner.long svg{width:calc(var(--u)*.6); height:calc(var(--u)*.6)}
 .c-park .pot{font-weight:800; font-size:calc(var(--u)*.2); color:var(--naija-deep)}
 .c-gojail .cn{color:#1E3C8C}
 
@@ -259,10 +269,10 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .group{display:grid; gap:6px}
 .group .gh{display:flex; align-items:center; gap:8px; font-size:.78rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
 .group .gh i{width:14px; height:14px; border-radius:4px}
-.prop{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; align-items:center; padding:8px 10px; background:var(--ink); border-radius:10px; border:1.5px solid var(--line)}
+.prop{display:grid; grid-template-columns:minmax(0,1fr); gap:8px; align-items:center; padding:8px 10px; background:var(--ink); border-radius:10px; border:1.5px solid var(--line)}
 .prop .pn{font-weight:700; font-size:.9rem; cursor:pointer}
 .prop .pn small{display:block; color:var(--muted); font-weight:600; font-size:.76rem}
-.prop .pa{display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end}
+.prop .pa{display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-start}
 .empty{color:var(--muted); font-size:.9rem; padding:8px 0}
 .log{display:grid; gap:6px; font-size:.86rem; max-height:300px; overflow:auto; padding-right:4px}
 .log div{color:var(--muted); border-left:2px solid var(--line); padding-left:8px}
@@ -429,6 +439,39 @@ const BOARDS = {
   },
 };
 
+/* Lagos Life: a board built from the Lagos Life city map.
+   Keys reuse the classic price ladder; names and special spaces are swapped in. */
+BOARDS.lagos = {
+  name: 'Lagos Life', size: 40, startCash: 1500, logo: ['LAGOS', 'LIFE'],
+  names: {
+    b1: "Mama Bisi's Salon",  b2: 'Amala Shitta',
+    s1: 'Viewing Centre',     s2: 'Naija Radio',      s3: 'Afrika Shrine',
+    p1: 'General Hospital',   p2: 'CcHub',            p3: 'UNILAG',
+    o1: 'Market',             o3: 'The Library',      o4: 'i-Fitness',
+    r1: 'High Court',         r2: 'Polanco',          r4: 'Canopy Walk',
+    y2: 'The Palms',          y3: 'Beach',            y4: 'Ivory Rooftop',
+    g1: 'Quilox',             g2: 'Eko Casino',       g3: 'Ikoyi Golf Club',
+    n1: 'Eko Hotels',         n3: 'Marina Towers',
+    t1: 'Danfo Park',         t2: 'Third Mainland Bridge', t3: 'Boat Cruise', t4: 'Airport',
+    u1: 'Refinery',           u2: 'NEPA Office',
+  },
+  icons: { u1: 'flame', u2: 'bulb', t1: 'bus', t2: 'brt', t3: 'boat', t4: 'plane' },
+  special: {
+    JAIL:     { type: 'jail',   name: 'Police Station', sub: 'Just visiting' },
+    PARK:     { type: 'park',   name: 'Freedom Park',   sub: 'Free party' },
+    GOJAIL:   { type: 'gojail', name: 'Arrested!',      sub: 'Go to Police Station' },
+    TAX_INC:  { type: 'tax',    name: 'LIRS Tax',       amount: 200 },
+    TAX_LUX:  { type: 'tax',    name: 'Agbero Levy',    amount: 100 },
+    CHURCH:   { type: 'rest',   name: 'Church',         sub: 'Rest and reflect' },
+    MOSQUE:   { type: 'rest',   name: 'Mosque',         sub: 'Rest and reflect' },
+    POLL:     { type: 'wahala', name: 'Polling Unit',   sub: 'Draw a Wahala card' },
+  },
+  layout: ['GO','b1','AJO','b2','TAX_INC','t1','s1','WAH','s2','s3',
+           'JAIL','p1','u1','p2','p3','t2','o1','CHURCH','o3','o4',
+           'PARK','r1','POLL','r2','r4','t3','y2','y3','u2','y4',
+           'GOJAIL','g1','g2','AJO','g3','t4','MOSQUE','n1','TAX_LUX','n3'],
+};
+
 const SALARY = 200;
 const JAIL_FINE = 50;
 
@@ -443,19 +486,19 @@ const BOT_NAMES = ['Chidi', 'Ngozi', 'Musa', 'Tunde', 'Amaka', 'Emeka', 'Zainab'
 const CARDS = {
   wahala: [
     { text: 'Your oga called you to head office. Advance to Start.', fx: { t: 'move', to: 'GO' } },
-    { text: 'A land agent has a deal for you. Advance to Banana Island.', fx: { t: 'move', to: 'n3' } },
-    { text: 'Weekend trip to Aso Rock. If you pass Start, collect your salary.', fx: { t: 'move', to: 'y4' } },
-    { text: 'Owambe in Calabar! Advance to Calabar Marina.', fx: { t: 'move', to: 'r1' } },
+    { text: 'A land agent has a deal for you. Advance to {n3}.', fx: { t: 'move', to: 'n3' } },
+    { text: 'Weekend trip to {y4}. If you pass Start, collect your salary.', fx: { t: 'move', to: 'y4' } },
+    { text: 'Owambe dey! Advance to {r1}.', fx: { t: 'move', to: 'r1' } },
     { text: 'Catch the next ride. Go to the nearest transport stop and pay the owner double.', fx: { t: 'nearest', kind: 'transport' } },
     { text: 'Rush hour. Go to the nearest transport stop and pay the owner double.', fx: { t: 'nearest', kind: 'transport' } },
     { text: 'Up NEPA! Go to the nearest utility. If it is owned, pay 10× your dice.', fx: { t: 'nearest', kind: 'utility' } },
     { text: 'Your crypto finally pumped. Collect ₦50k.', fx: { t: 'money', n: 50 } },
-    { text: 'Your uncle knows somebody. Get out of Kirikiri free.', fx: { t: 'jailFree' } },
+    { text: 'Your uncle knows somebody. Get out of {JAIL} free.', fx: { t: 'jailFree' } },
     { text: 'Third Mainland Bridge go-slow. Go back 3 spaces.', fx: { t: 'back', n: 3 } },
-    { text: 'Checkpoint wahala. Go straight to Kirikiri. Do not collect salary.', fx: { t: 'jail' } },
+    { text: 'Checkpoint wahala. Go straight to {JAIL}. Do not collect salary.', fx: { t: 'jail' } },
     { text: 'Generator servicing for all your buildings. Pay ₦25k per house and ₦100k per hotel.', fx: { t: 'repairs', house: 25, hotel: 100 } },
     { text: 'LASTMA caught you driving one-way. Pay ₦15k.', fx: { t: 'money', n: -15 } },
-    { text: 'Take a danfo to Oshodi Danfo Park. If you pass Start, collect your salary.', fx: { t: 'move', to: 't1' } },
+    { text: 'Take a danfo to {t1}. If you pass Start, collect your salary.', fx: { t: 'move', to: 't1' } },
     { text: 'You were made chairman of the estate association. Pay each player ₦50k.', fx: { t: 'each', n: 50 } },
     { text: 'Your building loan matured. Collect ₦150k.', fx: { t: 'money', n: 150 } },
   ],
@@ -464,8 +507,8 @@ const CARDS = {
     { text: 'Bank error in your favour. Collect ₦200k.', fx: { t: 'money', n: 200 } },
     { text: 'Hospital bill. Pay ₦50k.', fx: { t: 'money', n: -50 } },
     { text: 'You sold your tokunbo car. Collect ₦50k.', fx: { t: 'money', n: 50 } },
-    { text: 'Your lawyer is sharp. Get out of Kirikiri free.', fx: { t: 'jailFree' } },
-    { text: 'Area boys set you up. Go straight to Kirikiri. Do not collect salary.', fx: { t: 'jail' } },
+    { text: 'Your lawyer is sharp. Get out of {JAIL} free.', fx: { t: 'jailFree' } },
+    { text: 'Area boys set you up. Go straight to {JAIL}. Do not collect salary.', fx: { t: 'jail' } },
     { text: 'Your turn to collect the ajo. Collect ₦100k.', fx: { t: 'money', n: 100 } },
     { text: 'FIRS tax refund. Collect ₦20k.', fx: { t: 'money', n: 20 } },
     { text: "It's your birthday! Everyone sprays you ₦10k.", fx: { t: 'fromEach', n: 10 } },
@@ -509,22 +552,32 @@ const boardCache = {};
 function buildBoard(key) {
   if (boardCache[key]) return boardCache[key];
   const def = BOARDS[key] || BOARDS.classic;
+  const nm = k => (def.names && def.names[k]) || LANDMARKS[k] || k;
   const tiles = def.layout.map((k, i) => {
     if (PROPS[k]) {
       const p = PROPS[k];
-      return { i, key: k, type: 'prop', name: LANDMARKS[k] || k, group: p.g, price: p.price, rent: p.rent, house: GROUPS[p.g].house };
+      return { i, key: k, type: 'prop', name: nm(k), group: p.g, price: p.price, rent: p.rent, house: GROUPS[p.g].house };
     }
-    if (k[0] === 't' && LANDMARKS[k] && !SPECIAL[k]) return { i, key: k, type: 'transport', name: LANDMARKS[k], price: 200 };
-    if (k[0] === 'u' && LANDMARKS[k]) return { i, key: k, type: 'utility', name: LANDMARKS[k], price: 150 };
-    const sp = SPECIAL[k];
+    if (/^t\d$/.test(k)) return { i, key: k, type: 'transport', name: nm(k), price: 200, icon: def.icons && def.icons[k] };
+    if (/^u\d$/.test(k)) return { i, key: k, type: 'utility', name: nm(k), price: 150, icon: def.icons && def.icons[k] };
+    const sp = (def.special && def.special[k]) || SPECIAL[k];
     return Object.assign({ i, key: k }, sp);
   });
   const k = (tiles.length - 4) / 4;
-  boardCache[key] = { key, tiles, n: tiles.length, k, jail: tiles.findIndex(t => t.type === 'jail'), def };
+  boardCache[key] = { key, tiles, n: tiles.length, k, jail: tiles.findIndex(t => t.type === 'jail'), park: tiles.findIndex(t => t.type === 'park'), def };
   return boardCache[key];
 }
 
 const B = s => buildBoard(s.settings.board);
+const jailName = s => B(s).tiles[B(s).jail].name;
+const parkName = s => B(s).tiles[B(s).park].name;
+function cardText(s, card) {
+  return card.text.replace(/\{(\w+)\}/g, (m, k) => {
+    if (k === 'JAIL') return jailName(s);
+    const t = B(s).tiles.find(x => x.key === k);
+    return t ? t.name : m;
+  });
+}
 const T = (s, i) => B(s).tiles[i];
 const P = (s, id) => s.players.find(p => p.id === id);
 const cur = s => P(s, s.order[s.turn]);
@@ -628,7 +681,7 @@ function land(s, p, opts) {
       if (pr.mort) { log(s, `${t.name} is mortgaged. No rent.`); return; }
       const owner = P(s, pr.owner);
       if (!owner || owner.bankrupt) return;
-      if (owner.inJail && s.settings.noRentInJail) { log(s, `${owner.name} is in Kirikiri, so ${p.name} pays no rent.`); return; }
+      if (owner.inJail && s.settings.noRentInJail) { log(s, `${owner.name} is in ${jailName(s)}, so ${p.name} pays no rent.`); return; }
       const rent = rentFor(s, p.pos, dice, opts.cardMult);
       pay(s, p, rent, owner);
       s.fx.pays.push({ from: p.id, to: owner.id, amt: rent });
@@ -645,11 +698,11 @@ function land(s, p, opts) {
       return;
     case 'gojail':
       sendJail(s, p);
-      log(s, `${p.name} was sent to Kirikiri.`);
+      log(s, `${p.name} was sent to ${jailName(s)}.`);
       return;
     case 'park':
       if (s.settings.vacationCash && s.pot > 0) {
-        log(s, `${p.name} collected the Owambe pot of ${fmt(s.pot)}!`);
+        log(s, `${p.name} collected the ${parkName(s)} pot of ${fmt(s.pot)}!`);
         s.fx.pays.push({ from: null, to: p.id, amt: s.pot });
         p.cash += s.pot; s.pot = 0;
       }
@@ -664,7 +717,7 @@ function drawCard(s, p, deck) {
   if (card.fx.t !== 'jailFree') s.decks[deck].push(idx);
   s.cardSeq = (s.cardSeq || 0) + 1;
   s.card = { deck, idx, seq: s.cardSeq, pid: p.id };
-  log(s, `${p.name} drew ${deck === 'wahala' ? 'Wahala' : 'Ajo'}: “${card.text}”`);
+  log(s, `${p.name} drew ${deck === 'wahala' ? 'Wahala' : 'Ajo'}: “${cardText(s, card)}”`);
   const fx = card.fx;
   switch (fx.t) {
     case 'move': {
@@ -851,15 +904,15 @@ const ACTIONS = {
     if (p.inJail) {
       if (dbl) {
         p.inJail = false; p.jailTurns = 0; s.rollAgain = false;
-        log(s, `${p.name} rolled doubles and walked out of Kirikiri.`);
+        log(s, `${p.name} rolled doubles and walked out of ${jailName(s)}.`);
       } else {
         p.jailTurns++;
         if (p.jailTurns >= 3) {
           pay(s, p, JAIL_FINE, null, true); p.inJail = false; p.jailTurns = 0; s.rollAgain = false;
-          log(s, `${p.name} paid the ${fmt(JAIL_FINE)} fine after 3 tries and left Kirikiri.`);
+          log(s, `${p.name} paid the ${fmt(JAIL_FINE)} fine after 3 tries and left ${jailName(s)}.`);
         } else {
           s.rollAgain = false; s.phase = 'done';
-          log(s, `${p.name} rolled ${d1} and ${d2}. Still in Kirikiri.`);
+          log(s, `${p.name} rolled ${d1} and ${d2}. Still in ${jailName(s)}.`);
           return;
         }
       }
@@ -868,7 +921,7 @@ const ACTIONS = {
       if (dbl) {
         p.doubles++;
         if (p.doubles >= 3) {
-          log(s, `${p.name} rolled doubles three times. Off to Kirikiri!`);
+          log(s, `${p.name} rolled doubles three times. Off to ${jailName(s)}!`);
           sendJail(s, p); s.phase = 'done'; return;
         }
         s.rollAgain = true;
@@ -940,7 +993,7 @@ const ACTIONS = {
     if (p.cash < JAIL_FINE) return 'Not enough cash.';
     pay(s, p, JAIL_FINE, null, true);
     p.inJail = false; p.jailTurns = 0;
-    log(s, `${p.name} paid ${fmt(JAIL_FINE)} bail and left Kirikiri.`);
+    log(s, `${p.name} paid ${fmt(JAIL_FINE)} bail and left ${jailName(s)}.`);
   },
   useJailCard(s, a) {
     const p = cur(s);
@@ -949,7 +1002,7 @@ const ACTIONS = {
     const d = p.jailCards.pop();
     s.decks[d].push(CARDS[d].findIndex(c => c.fx.t === 'jailFree'));
     p.inJail = false; p.jailTurns = 0;
-    log(s, `${p.name} used a get-out-of-Kirikiri card.`);
+    log(s, `${p.name} used a get-out-of-${jailName(s)} card.`);
   },
   build(s, a) {
     const p = P(s, a.by);
@@ -1231,11 +1284,19 @@ const ICONS = {
   arrow: '<svg viewBox="0 0 40 40"><path d="M34 20H8m0 0 9-9m-9 9 9 9" stroke="#065A33" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   siren: '<svg viewBox="0 0 40 40"><path d="M10 30v-9a10 10 0 0 1 20 0v9z" fill="#2445AE" stroke="#141414" stroke-width="2"/><rect x="6" y="30" width="28" height="5" rx="1.5" fill="#141414"/><path d="M16 21a4 4 0 0 1 4-4" stroke="#8FD0F2" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M20 3v4M8 8l3 3M32 8l-3 3" stroke="#D4252D" stroke-width="2.5" stroke-linecap="round"/></svg>',
   drum: '<svg viewBox="0 0 40 40"><path d="M10 6c4 3 16 3 20 0l-4 14 4 14c-4-3-16-3-20 0l4-14z" fill="#B86B2D" stroke="#141414" stroke-width="2" stroke-linejoin="round"/><path d="M12 9l16 22M28 9 12 31" stroke="#F7C21A" stroke-width="1.4"/></svg>',
+  boat: '<svg viewBox="0 0 32 32"><path d="M3 19h26l-4 7H8z" fill="#fff" stroke="#141414" stroke-width="1.8" stroke-linejoin="round"/><rect x="9" y="12" width="13" height="7" rx="1.5" fill="#4FB9E3" stroke="#141414" stroke-width="1.6"/><rect x="12" y="7" width="6" height="5" fill="#D4252D" stroke="#141414" stroke-width="1.4"/><path d="M2 29c3 0 3-1.5 6-1.5s3 1.5 6 1.5 3-1.5 6-1.5 3 1.5 6 1.5" stroke="#2445AE" stroke-width="1.6" fill="none"/></svg>',
+  church: '<svg viewBox="0 0 32 32"><path d="M16 2v6M13 4.5h6" stroke="#141414" stroke-width="1.8" stroke-linecap="round"/><path d="M9 14l7-6 7 6v14H9z" fill="#F1EAD6" stroke="#141414" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 28v-6a2 2 0 0 1 4 0v6" fill="#8A4B2A" stroke="#141414" stroke-width="1.4"/><circle cx="16" cy="15" r="2" fill="#4FB9E3" stroke="#141414" stroke-width="1.2"/></svg>',
+  mosque: '<svg viewBox="0 0 32 32"><path d="M8 18a8 8 0 0 1 16 0z" fill="#16964F" stroke="#141414" stroke-width="1.8"/><rect x="7" y="18" width="18" height="10" fill="#F1EAD6" stroke="#141414" stroke-width="1.8"/><rect x="26" y="9" width="3" height="19" fill="#F1EAD6" stroke="#141414" stroke-width="1.4"/><path d="M27.5 9V6" stroke="#141414" stroke-width="1.4"/><path d="M14 28v-5a2 2 0 0 1 4 0v5" fill="#16964F" stroke="#141414" stroke-width="1.4"/><path d="M16 10V7.5" stroke="#141414" stroke-width="1.4"/></svg>',
+  ballot: '<svg viewBox="0 0 32 32"><rect x="5" y="13" width="22" height="15" rx="2" fill="#fff" stroke="#141414" stroke-width="1.8"/><rect x="11" y="13" width="10" height="2.5" fill="#141414"/><path d="M12 4h8l1 10h-10z" fill="#16964F" stroke="#141414" stroke-width="1.5"/><path d="M14 8l1.5 1.5L18 6.5" stroke="#fff" stroke-width="1.4" fill="none"/><text x="16" y="24" text-anchor="middle" font-size="5.5" font-weight="900" font-family="Arial" fill="#D4252D">VOTE</text></svg>',
   sound: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>',
   mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="m17 9 5 6M22 9l-5 6"/></svg>',
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9H3z"/><path d="M10 20v-5h4v5"/></svg>',
 };
 function tileIcon(t) {
+  if (t.icon && ICONS[t.icon]) return ICONS[t.icon];
+  if (t.key === 'CHURCH') return ICONS.church;
+  if (t.key === 'MOSQUE') return ICONS.mosque;
+  if (t.key === 'POLL') return ICONS.ballot;
   if (t.type === 'transport') return { t1: ICONS.bus, t2: ICONS.train, t3: ICONS.brt, t4: ICONS.plane }[t.key] || ICONS.bus;
   if (t.type === 'utility') return { u1: ICONS.bulb, u2: ICONS.drop, u3: ICONS.flame }[t.key] || ICONS.bulb;
   if (t.type === 'tax') return ICONS.tax;
@@ -1292,20 +1353,21 @@ function tilePlace(i, k) {
 
 function cornerHTML(t) {
   if (t.type === 'go') return `<div><div class="cn">START</div><div class="cs">Collect ${fmt(SALARY)}<br>salary</div>${ICONS.arrow}</div>`;
-  if (t.type === 'jail') return `<div class="cell"><b>KIRIKIRI</b></div><div class="vis">JUST<br>VISITING</div>`;
-  if (t.type === 'park') return `<div>${ICONS.drum}<div class="cn">OWAMBE</div><div class="pot" data-pot></div></div>`;
-  if (t.type === 'gojail') return `<div>${ICONS.siren}<div class="cn">GO TO<br>KIRIKIRI</div></div>`;
+  if (t.type === 'jail') return `<div class="cell"><b>${esc(t.name.toUpperCase())}</b></div><div class="vis">JUST<br>VISITING</div>`;
+  if (t.type === 'park') return `<div>${ICONS.drum}<div class="cn">${esc(t.name.toUpperCase())}</div><div class="pot" data-pot></div></div>`;
+  if (t.type === 'gojail') return `<div>${ICONS.siren}<div class="cn">${t.name === 'Go to Kirikiri' ? 'GO TO<br>KIRIKIRI' : esc(t.name.toUpperCase()) + '<br><small style="font-size:.6em">' + esc(t.sub || '') + '</small>'}</div></div>`;
   return '';
 }
 
 function tileHTML(t, k) {
   const pl = tilePlace(t.i, k);
   const pos = `grid-row:${pl.r};grid-column:${pl.c}`;
-  if (pl.side === 'corner') return `<div class="tile corner c-${t.type}" data-i="${t.i}" style="${pos}" role="button" tabindex="-1" aria-label="${esc(t.name)}">${cornerHTML(t)}</div>`;
+  if (pl.side === 'corner') return `<div class="tile corner c-${t.type}${t.name.length > 9 ? ' long' : ''}" data-i="${t.i}" style="${pos}" role="button" tabindex="-1" aria-label="${esc(t.name)}">${cornerHTML(t)}</div>`;
   let inner;
   if (t.type === 'prop') inner = `<div class="band" style="--gc:${GROUPS[t.group].color}"><div class="hs"></div></div><div class="t-name">${esc(t.name)}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
   else if (t.type === 'transport' || t.type === 'utility') inner = `<div class="t-ico">${tileIcon(t)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">${fmt(t.price)}</div><div class="own" hidden></div>`;
   else if (t.type === 'tax') inner = `<div class="t-ico">${tileIcon(t)}</div><div class="t-name">${esc(t.name)}</div><div class="t-price">Pay ${fmt(t.amount)}</div>`;
+  else if (t.type === 'rest') inner = `<div class="t-ico" style="flex:1;align-items:center">${tileIcon(t)}</div><div class="t-name" style="flex:none;padding-bottom:3px">${esc(t.name)}</div>`;
   else inner = `<div class="t-name" style="font-family:var(--f-display);font-weight:400;color:${t.type === 'wahala' ? '#C0331E' : '#0B7A47'}">${esc(t.name)}</div><div class="t-ico" style="flex:1;align-items:center">${tileIcon(t)}</div>`;
   return `<div class="tile side-${pl.side}" data-i="${t.i}" style="${pos}" role="button" tabindex="-1" aria-label="${esc(t.name)}"><div class="t-in">${inner}</div></div>`;
 }
@@ -1321,6 +1383,21 @@ function boardHTML(key, withCenter) {
         `<div class="center" style="left:calc(${p}% + 2px);top:calc(${p}% + 2px);right:calc(${p}% + 2px);bottom:calc(${p}% + 2px)"><div class="c-logo">NAIJA<br><span>LANDLORD</span></div></div>`}
     </div>
   </div>`;
+}
+
+function houseSVG(c) {
+  return `<svg class="hse" viewBox="0 0 12 13" aria-hidden="true"><path d="M1 6.5 6 1.5l5 5V12H1z" fill="${c}" stroke="#141414" stroke-width="1.1" stroke-linejoin="round"/><path d="M1.8 6.2 6 2.3l4.2 3.9" fill="none" stroke="#fff" stroke-width=".7" opacity=".75"/><rect x="4.7" y="8.2" width="2.6" height="3.8" fill="#141414" opacity=".55"/></svg>`;
+}
+function hotelSVG(c) {
+  let w = '';
+  for (let r = 0; r < 2; r++) for (let k = 0; k < 6; k++) if (!(r === 1 && (k === 2 || k === 3))) w += `<rect x="${3 + k * 4.2}" y="${5 + r * 4}" width="2.4" height="2.2" fill="#FFF6C9"/>`;
+  return `<svg class="htl" viewBox="0 0 30 16" aria-hidden="true"><rect x="1" y="3" width="28" height="12.4" rx="1" fill="${c}" stroke="#141414" stroke-width="1.1"/><rect x="0" y="1" width="30" height="3" rx="1" fill="#141414"/>${w}<rect x="12.6" y="9.4" width="4.8" height="6" fill="#141414" opacity=".7"/></svg>`;
+}
+function buildingsHTML(owner, houses) {
+  if (!owner) return '';
+  if (houses === 5) return hotelSVG(owner.color);
+  if (houses > 0) return houseSVG(owner.color).repeat(houses);
+  return `<span class="plot" style="--oc:${owner.color}">${owner.token}</span>`;
 }
 
 const boardObservers = new WeakMap();
@@ -1397,7 +1474,7 @@ function showHome() {
       </div>
     </div>
     <div class="facts">
-      <div class="fact"><b>Two boards</b><span>Classic Naija (40 spaces) or Mega Naija (48 spaces, 26 landmarks).</span></div>
+      <div class="fact"><b>Three boards</b><span>Classic Naija, Mega Naija (48 spaces) and Lagos Life, built from the Lagos Life city map.</span></div>
       <div class="fact"><b>House rules</b><span>Double rent on full sets, Owambe pot, auctions, mortgages, even building.</span></div>
       <div class="fact"><b>Trading</b><span>Swap properties, cash and get-out-of-Kirikiri cards with any player.</span></div>
       <div class="fact"><b>Bots</b><span>Eight seats. Add bots to play solo or fill a table.</span></div>
@@ -1408,7 +1485,11 @@ function showHome() {
   // decorate the preview with some ownership
   const demo = { 1: '#F7C21A', 3: '#F7C21A', 11: '#3DD68C', 13: '#3DD68C', 14: '#3DD68C', 21: '#FF6B6B', 37: '#5AB0FF', 39: '#5AB0FF', 5: '#FF6B6B' };
   Object.entries(demo).forEach(([i, c]) => { const t = $(`.tile[data-i="${i}"]`, pb); if (t) { t.classList.add('owned'); t.style.setProperty('--own', c); const o = $('.own', t); if (o) o.hidden = false; } });
-  [[37, 2], [39, 5], [11, 1], [13, 1], [14, 2]].forEach(([i, h]) => { const hs = $(`.tile[data-i="${i}"] .hs`, pb); if (hs) hs.innerHTML = h === 5 ? '<i class="hotel"></i>' : '<i class="house"></i>'.repeat(h); });
+  [[37, 2, '#5AB0FF', '🦅'], [39, 5, '#5AB0FF', '🦅'], [11, 1, '#3DD68C', '🚌'], [13, 1, '#3DD68C', '🚌'], [14, 2, '#3DD68C', '🚌'], [1, 0, '#F7C21A', '🛺'], [3, 0, '#F7C21A', '🛺'], [21, 0, '#FF6B6B', '🥘']].forEach(([i, h, c, tok]) => {
+    const t = $(`.tile[data-i="${i}"]`, pb); if (!t) return;
+    const hs = $('.hs', t); if (hs) hs.innerHTML = buildingsHTML({ color: c, token: tok }, h);
+    const o = $('.own', t); if (o) o.innerHTML = `<span class="emb">${tok}</span>`;
+  });
 }
 
 /* ---------------- settings form (shared) ---------------- */
@@ -1425,9 +1506,9 @@ function settingsHTML(st, editable, online) {
     <div>
       ${online ? tg('public', 'Public room', 'Anyone in the world can find this room under Open rooms and join. Turn off to let people in by code only.') : ''}
       ${tg('doubleRent', 'Double rent on full sets', 'Owning a whole colour set doubles its base rent.')}
-      ${tg('vacationCash', 'Owambe pot', 'Taxes and fines pile up at Owambe. Land there to collect it all.')}
+      ${tg('vacationCash', 'Party pot', 'Taxes and fines pile up on the party corner (Owambe or Freedom Park). Land there to collect it all.')}
       ${tg('auction', 'Auctions', 'If a player passes on a property, everyone can bid for it.')}
-      ${tg('noRentInJail', 'No rent from Kirikiri', 'Owners in Kirikiri cannot collect rent.')}
+      ${tg('noRentInJail', 'No rent while locked up', 'Owners in Kirikiri or the Police Station cannot collect rent.')}
       ${tg('mortgage', 'Mortgages', 'Mortgage properties to the bank for half their price.')}
       ${tg('evenBuild', 'Build evenly', 'Houses must be spread evenly across a colour set.')}
       ${tg('randomOrder', 'Random turn order', 'Shuffle who goes first when the game starts.')}
@@ -1835,7 +1916,8 @@ function buildGameScreen(s) {
     layer.appendChild(el);
   });
   const center = $('.center', board);
-  center.innerHTML = `<div class="c-logo">NAIJA<br><span>LANDLORD</span></div><div class="dice">${dieHTML()}${dieHTML()}</div><div id="cmain" style="display:grid;gap:10px;justify-items:center;width:100%"></div><div class="cardpop" id="cardpop" hidden></div>`;
+  const lg = buildBoard(s.settings.board).def.logo || ['NAIJA', 'LANDLORD'];
+  center.innerHTML = `<div class="c-logo">${esc(lg[0])}<br><span>${esc(lg[1])}</span></div><div class="dice">${dieHTML()}${dieHTML()}</div><div id="cmain" style="display:grid;gap:10px;justify-items:center;width:100%"></div><div class="cardpop" id="cardpop" hidden></div>`;
 }
 
 function renderAll(s) {
@@ -1857,9 +1939,17 @@ function renderBoardState(s) {
     el.classList.toggle('owned', !!owner);
     el.classList.toggle('mort', !!(pr && pr.mort));
     if (owner) el.style.setProperty('--own', owner.color); else el.style.removeProperty('--own');
-    const o = $('.own', el); if (o) o.hidden = !owner;
+    const o = $('.own', el);
+    if (o) { o.hidden = !owner; const em = owner ? `<span class="emb">${owner.token}</span>` : ''; if (o.innerHTML !== em) o.innerHTML = em; }
     const hs = $('.hs', el);
-    if (hs) { const h = pr ? pr.houses : 0; const html = h === 5 ? '<i class="hotel"></i>' : '<i class="house"></i>'.repeat(h); if (hs.innerHTML !== html) hs.innerHTML = html; }
+    if (hs) {
+      const h = pr ? pr.houses : 0, key = owner ? owner.id + ':' + h : '';
+      if (hs.dataset.k !== key) {
+        const grew = owner && (!hs.dataset.k || +hs.dataset.k.split(':')[1] < h || hs.dataset.k.split(':')[0] !== owner.id);
+        hs.dataset.k = key; hs.innerHTML = buildingsHTML(owner, h);
+        if (grew && ui.shown && !ui.view.first) { hs.classList.remove('pop'); void hs.offsetWidth; hs.classList.add('pop'); }
+      }
+    }
   });
   const pot = $('[data-pot]', board);
   if (pot) pot.textContent = s.settings.vacationCash ? fmt(s.pot) : 'Free party';
@@ -1921,7 +2011,7 @@ function floatMoney(s, pid, amt) {
 function showCard(card) {
   const pop = $('#cardpop'); if (!pop) return;
   const c = CARDS[card.deck][card.idx];
-  pop.innerHTML = `<div class="gcard ${card.deck}" role="status"><div class="dk">${card.deck === 'wahala' ? 'WAHALA' : 'AJO'}</div><p>${esc(c.text)}</p></div>`;
+  pop.innerHTML = `<div class="gcard ${card.deck}" role="status"><div class="dk">${card.deck === 'wahala' ? 'WAHALA' : 'AJO'}</div><p>${esc(cardText(ui.state, c))}</p></div>`;
   pop.hidden = false; sound('card');
   clearTimeout(ui.cardT);
   ui.cardT = setTimeout(() => { pop.hidden = true; }, 4200);
@@ -1972,7 +2062,7 @@ function renderCenter() {
     let btns = '';
     if (s.phase === 'roll') {
       if (c.inJail) {
-        h += `<div class="c-sub">You're in Kirikiri (try ${c.jailTurns + 1} of 3).</div>`;
+        h += `<div class="c-sub">You're in ${esc(J())} (try ${c.jailTurns + 1} of 3).</div>`;
         btns += `<button class="btn primary" data-act="roll" ${debt ? 'disabled' : ''}>Roll for doubles</button>`;
         btns += `<button class="btn" data-act="payJail" ${c.cash < JAIL_FINE ? 'disabled' : ''}>Pay ${fmt(JAIL_FINE)} bail</button>`;
         if (c.jailCards.length) btns += `<button class="btn green" data-act="useJailCard">Use free card</button>`;
@@ -1989,7 +2079,7 @@ function renderCenter() {
     if (debt) btns += `<button class="btn ghost small" data-tab="props">Manage property</button>` + confirmBtn('bankrupt', 'Declare bankruptcy', 'btn danger small');
     h += `<div class="c-actions">${btns}</div>`;
   }
-  if (s.settings.vacationCash && s.pot > 0) h += `<div class="c-pot">Owambe pot ${fmt(s.pot)}</div>`;
+  if (s.settings.vacationCash && s.pot > 0) h += `<div class="c-pot">${esc(PK())} pot ${fmt(s.pot)}</div>`;
   el.innerHTML = h;
   $$('button', el).forEach(b => { if (busy && b.dataset.act && !b.dataset.bid) b.disabled = true; });
   updateAuctionBar();
@@ -1997,7 +2087,7 @@ function renderCenter() {
 function phaseText(s, c) {
   if (!c) return '';
   if (s.phase === 'buy' && s.pending) return `${esc(c.name)} is deciding on ${esc(T(s, s.pending.i).name)}.`;
-  if (c.inJail) return `${esc(c.name)} is in Kirikiri.`;
+  if (c.inJail) return `${esc(c.name)} is in ${esc(J())}.`;
   if (s.phase === 'done') return `${esc(c.name)} is finishing their turn.`;
   return `Waiting for ${esc(c.name)} to roll.`;
 }
@@ -2043,7 +2133,7 @@ function renderPlayers(s) {
     return `<div class="pl ${p.id === curId && s.status === 'playing' ? 'turn' : ''} ${p.bankrupt ? 'out' : ''}">
       <div class="avatar" style="--pc:${p.color}">${p.token}</div>
       <div style="min-width:0"><div class="nm">${esc(p.name)}</div>
-        <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? '<span class="chip r">Kirikiri</span>' : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${others}</div></div>
+        <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? `<span class="chip r">${esc(J())}</span>` : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${others}</div></div>
       <div class="cash ${p.cash < 0 ? 'neg' : ''}">${fmt(p.cash)}</div>
       ${sets ? `<div class="sets">${sets}</div>` : ''}${kick}
     </div>`;
@@ -2124,13 +2214,13 @@ function tradeTab(s, me) {
     return `<div class="tcol"><span class="lbl">${side === 'give' ? 'You give' : esc(who.name) + ' gives'}</span>
       ${list.length ? list.map(t => `<label class="ck"><input type="checkbox" data-tp="${side}" value="${t.i}" ${off.props.includes(t.i) ? 'checked' : ''}><i style="background:${t.type === 'prop' ? GROUPS[t.group].color : '#9aa0c8'}"></i>${esc(t.name)}${s.props[t.i].mort ? ' (mortgaged)' : ''}</label>`).join('') : '<span class="small muted">No tradable property</span>'}
       <div class="field"><label for="tc-${side}">Cash in ₦k (has ${fmt(who.cash)})</label><input class="input" type="number" min="0" step="10" id="tc-${side}" data-tc="${side}" value="${off.cash || ''}" placeholder="0"></div>
-      ${who.jailCards.length ? `<label class="ck"><input type="checkbox" data-tcard="${side}" ${off.cards ? 'checked' : ''}>Get-out-of-Kirikiri card</label>` : ''}
+      ${who.jailCards.length ? `<label class="ck"><input type="checkbox" data-tcard="${side}" ${off.cards ? 'checked' : ''}>Get-out-of-${esc(J())} card</label>` : ''}
     </div>`;
   };
   const offers = s.trades.filter(t => t.from === me || t.to === me || ui.mode === 'local');
   const offerList = offers.map(t => {
     const a = P(s, t.from), b = P(s, t.to);
-    const items = (off, who) => [off.cash ? fmt(off.cash) : '', ...off.props.map(i => T(s, i).name), off.cards ? 'Get-out-of-Kirikiri card' : ''].filter(Boolean).map(x => `<li>${esc(x)}</li>`).join('') || '<li>Nothing</li>';
+    const items = (off, who) => [off.cash ? fmt(off.cash) : '', ...off.props.map(i => T(s, i).name), off.cards ? 'Get-out-of-' + J() + ' card' : ''].filter(Boolean).map(x => `<li>${esc(x)}</li>`).join('') || '<li>Nothing</li>';
     const canAnswer = ui.mode === 'local' ? controls(t.to) : t.to === me;
     const canCancel = ui.mode === 'local' ? controls(t.from) : t.from === me;
     return `<div class="offer ${canAnswer ? 'in' : ''}"><b>${esc(a.name)} → ${esc(b.name)}</b>
@@ -2161,16 +2251,20 @@ function rulesTab(s, me) {
       <dt>Starting cash</dt><dd>${fmt(st.startCash)}</dd>
       <dt>Salary at Start</dt><dd>${fmt(SALARY)}</dd>
       <dt>Double rent on full sets</dt><dd>${yes(st.doubleRent)}</dd>
-      <dt>Owambe pot</dt><dd>${yes(st.vacationCash)}</dd>
+      <dt>${esc(PK())} pot</dt><dd>${yes(st.vacationCash)}</dd>
       <dt>Auctions</dt><dd>${yes(st.auction)}</dd>
-      <dt>No rent from Kirikiri</dt><dd>${yes(st.noRentInJail)}</dd>
+      <dt>No rent from ${esc(J())}</dt><dd>${yes(st.noRentInJail)}</dd>
       <dt>Mortgages</dt><dd>${yes(st.mortgage)}</dd>
       <dt>Build evenly</dt><dd>${yes(st.evenBuild)}</dd>
     </dl>
-    <p class="small muted">Roll doubles to go again; three doubles in a row sends you to Kirikiri. In Kirikiri, roll doubles, pay ${fmt(JAIL_FINE)} bail, or use a free card. After three failed tries you pay bail and move. Own a whole colour set to build houses, then a hotel. Transport rent doubles with each stop you own. Utility rent is 4× the dice with one, 10× with two${st.board === 'mega' ? ', 20× with three' : ''}. If you can't pay, sell or mortgage. If that's not enough, you're bankrupt.</p>
+    <p class="small muted">Roll doubles to go again; three doubles in a row sends you to ${esc(J())}. There, roll doubles, pay ${fmt(JAIL_FINE)} bail, or use a free card. After three failed tries you pay bail and move. Own a whole colour set to build houses, then a hotel. Transport rent doubles with each stop you own. Utility rent is 4× the dice with one, 10× with two${st.board === 'mega' ? ', 20× with three' : ''}. If you can't pay, sell or mortgage. If that's not enough, you're bankrupt.</p>
     ${p && s.status === 'playing' ? confirmBtn('forfeit', 'Leave game and give up', 'btn danger small') : ''}
   </div>`;
 }
+
+/* the jail and party corners are named per board */
+const J = () => ui.state ? jailName(ui.state) : 'Kirikiri';
+const PK = () => ui.state ? parkName(ui.state) : 'Owambe';
 
 /* chat */
 const QUICK = ['Oya, roll! 🎲', 'Wahala dey o 😩', 'Na wa o 😂', 'E don cast 💀', 'Well played 👏'];
@@ -2238,10 +2332,11 @@ function openDeed(i) {
   } else {
     const desc = {
       go: `Collect ${fmt(SALARY)} salary every time you pass Start.`,
-      jail: `Kirikiri. If you're just visiting, relax. If you're locked up, roll doubles, pay ${fmt(JAIL_FINE)} bail, or use a free card.`,
-      park: s && s.settings.vacationCash ? `Owambe! Land here to collect the pot: ${fmt(s.pot)} right now.` : 'Owambe. Free party. Nothing happens here.',
-      gojail: 'Go straight to Kirikiri. Do not pass Start, do not collect salary.',
-      tax: `Pay ${fmt(t.amount)}${s && s.settings.vacationCash ? ' into the Owambe pot' : ' to the bank'}.`,
+      jail: `${esc(t.name)}. If you're just visiting, relax. If you're locked up, roll doubles, pay ${fmt(JAIL_FINE)} bail, or use a free card.`,
+      park: s && s.settings.vacationCash ? `${esc(t.name)}! Land here to collect the pot: ${fmt(s.pot)} right now.` : `${esc(t.name)}. Free party. Nothing happens here.`,
+      gojail: `Go straight to ${esc(J())}. Do not pass Start, do not collect salary.`,
+      rest: 'A quiet place to rest. Nothing happens here.',
+      tax: `Pay ${fmt(t.amount)}${s && s.settings.vacationCash ? ' into the ' + esc(PK()) + ' pot' : ' to the bank'}.`,
       wahala: 'Draw a Wahala card. Could be good news, could be wahala.',
       ajo: 'Draw an Ajo card. Usually money, sometimes trouble.',
     }[t.type];
