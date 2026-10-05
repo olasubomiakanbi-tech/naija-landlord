@@ -326,7 +326,46 @@ body.in-game #game{height:100svh; height:100dvh}
 .tcol label.ck{display:flex; gap:6px; align-items:center; font-size:.84rem; cursor:pointer}
 .tcol label.ck i{width:10px; height:10px; border-radius:3px; flex:none}
 .offer{background:var(--ink); border:1.5px solid var(--line); border-radius:12px; padding:10px; display:grid; gap:8px; font-size:.88rem}
-.offer.in{border-color:var(--danfo)}
+.offer.in{border-color:var(--danfo); box-shadow:0 0 0 3px rgba(247,194,26,.12)}
+.pane > *{flex-shrink:0}
+.avatar.sm{width:24px; height:24px; font-size:13px; border-width:2px}
+.ohead{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.oside{display:grid; gap:4px}
+.oact{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
+.tchips{display:flex; gap:4px; flex-wrap:wrap}
+.tchip{display:inline-flex; align-items:center; gap:5px; background:var(--ink-3); border:1.5px solid var(--line); border-radius:99px; padding:.18em .6em; font-size:.8rem; font-weight:700}
+.tchip::before{content:''; width:8px; height:8px; border-radius:2px; background:var(--gc, transparent)}
+.tchip.cash{background:#0d3a24; border-color:#16964F; color:#B8F5D2}
+.tchip.cash::before{display:none}
+.tbuilder{display:grid; gap:12px; background:var(--ink); border:1.5px solid var(--line); border-radius:14px; padding:12px}
+.tbuilder.counter{border-color:var(--danfo)}
+.tbh{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.partners{display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none}
+.partner{flex:none; display:flex; align-items:center; gap:6px; border:1.5px solid var(--line); background:var(--ink-2); color:var(--fg); border-radius:99px; padding:.3em .8em .3em .3em; font-weight:700; font-size:.85rem; cursor:pointer}
+.partner.on{border-color:var(--danfo); background:var(--ink-4)}
+.tsides{display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:8px; align-items:start}
+.tswap{align-self:center; color:var(--danfo); font-weight:900; font-size:1.2rem}
+.tside{display:grid; gap:8px; align-content:start; min-width:0}
+.tsh{display:flex; align-items:center; gap:6px; font-size:.88rem}
+.tpick{display:flex; flex-wrap:wrap; gap:5px; max-height:180px; overflow:auto}
+.tprop{display:inline-flex; align-items:center; gap:5px; text-align:left; border:1.5px solid var(--line); background:var(--ink-2); color:var(--fg); border-radius:9px; padding:.3em .55em; font-size:.78rem; font-weight:700; cursor:pointer; line-height:1.2}
+.tprop::before{content:''; flex:none; width:9px; height:9px; border-radius:2px; background:var(--gc)}
+.tprop.on{border-color:var(--danfo); background:#3a3209; box-shadow:inset 0 0 0 1px var(--danfo)}
+.tprop.on::after{content:'✓'; color:var(--danfo); font-weight:900}
+.tprop small{color:var(--muted); font-weight:600}
+.tcash{display:grid; gap:4px}
+.stepper{display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:4px}
+.stepper .input{padding:.45em .5em; text-align:center; font-weight:800}
+.tfoot{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
+.ptrade{grid-column:1/-1; justify-self:start}
+.chathead{display:flex; align-items:center; gap:8px; width:100%; background:none; border:0; color:var(--fg); padding:0; cursor:pointer; text-align:left; min-width:0}
+.chathead .small{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:55%}
+.chathead .chev{color:var(--muted); font-size:.9rem}
+.chatbody{display:grid; gap:10px}
+.chatcard.shut{padding:10px 14px}
+.chatcard.shut .chatbody{display:none}
+.badge{background:var(--bad); color:#fff; border-radius:99px; font-size:.72rem; font-weight:900; padding:.05em .5em}
+@media (max-width:480px){ .tsides{grid-template-columns:minmax(0,1fr)} .tswap{transform:rotate(90deg); justify-self:center} }
 .idle{background:rgba(0,0,0,.3); color:#fff; border-radius:10px; padding:.4em .8em; font-weight:700; font-size:max(12px, calc(var(--u)*.24)); display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center}
 .idle.warn{background:rgba(226,72,47,.85)}
 .offer ul{margin:0; padding-left:18px}
@@ -1544,7 +1583,7 @@ const ui = {
   tab: 'props', actor: null, draft: null, sending: false,
   muted: !!(LS.get('nl-prefs') || {}).muted,
   prefs: Object.assign({ name: '', token: '🛺' }, LS.get('nl-prefs') || {}),
-  setup: null, rooms: null, confirm: null, unread: 0,
+  setup: null, rooms: null, confirm: null, unread: 0, chatOpen: LS.get('nl-chat-open') !== false ? (LS.get('nl-chat-open') === true) : false, chatUnread: 0,
 };
 
 /* ---------------- icons ---------------- */
@@ -2899,6 +2938,7 @@ function renderPlayers(s, holdCash) {
         <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? `<span class="chip r">${esc(J())}</span>` : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${p.bot && !p.bankrupt ? `<span class="chip ${p.level === 3 ? 'y' : ''}">${BOT_LEVELS[p.level || 2]}</span>` : ''}${others}</div></div>
       <div class="cash ${p.cash < 0 ? 'neg' : ''}">${fmt(p.cash)}</div>
       ${sets ? `<div class="sets">${sets}</div>` : ''}${kick}
+      ${s.status === 'playing' && !p.bankrupt && actorId() && p.id !== actorId() && !(ui.mode === 'local' && !p.bot && false) ? `<button class="btn ghost small ptrade" data-tradewith="${p.id}">Trade</button>` : ''}
     </div>`;
   }).join('');
   const ri = $('#roomInfo');
@@ -2974,35 +3014,61 @@ function tradeTab(s, me) {
   const d = ui.draft;
   if (!others.find(o => o.id === d.to)) d.to = (others[0] || {}).id;
   const o = P(s, d.to);
-  const tradable = pid => ownedBy(s, pid).filter(t => !(t.type === 'prop' && groupHasHouses(s, t.group)));
-  const col = (side, who) => {
-    const off = d[side];
-    const list = tradable(who.id);
-    return `<div class="tcol"><span class="lbl">${side === 'give' ? 'You give' : esc(who.name) + ' gives'}</span>
-      ${list.length ? list.map(t => `<label class="ck"><input type="checkbox" data-tp="${side}" value="${t.i}" ${off.props.includes(t.i) ? 'checked' : ''}><i style="background:${t.type === 'prop' ? GROUPS[t.group].color : '#9aa0c8'}"></i>${esc(t.name)}${s.props[t.i].mort ? ' (mortgaged)' : ''}</label>`).join('') : '<span class="small muted">No tradable property</span>'}
-      <div class="field"><label for="tc-${side}">Cash in ₦k (has ${fmt(who.cash)})</label><input class="input" type="number" min="0" step="10" id="tc-${side}" data-tc="${side}" value="${off.cash || ''}" placeholder="0"></div>
-      ${who.jailCards.length ? `<label class="ck"><input type="checkbox" data-tcard="${side}" ${off.cards ? 'checked' : ''}>Get-out-of-${esc(J())} card</label>` : ''}
-    </div>`;
-  };
+  const pname = x => ui.mode === 'online' && x.id === ui.me ? 'You' : x.name;
+
+  /* incoming and outgoing offers */
   const offers = s.trades.filter(t => t.from === me || t.to === me || ui.mode === 'local');
+  const chips = off => {
+    const parts = [];
+    if (off.cash) parts.push(`<span class="tchip cash">${fmt(off.cash)}</span>`);
+    off.props.forEach(i => { const t = T(s, i); parts.push(`<span class="tchip" style="--gc:${t.type === 'prop' ? GROUPS[t.group].color : '#9aa0c8'}">${esc(t.name)}</span>`); });
+    if (off.cards) parts.push(`<span class="tchip">Free ${esc(J())} card</span>`);
+    return parts.join('') || '<span class="small muted">Nothing</span>';
+  };
   const offerList = offers.map(t => {
     const a = P(s, t.from), b = P(s, t.to);
-    const items = (off, who) => [off.cash ? fmt(off.cash) : '', ...off.props.map(i => T(s, i).name), off.cards ? 'Get-out-of-' + J() + ' card' : ''].filter(Boolean).map(x => `<li>${esc(x)}</li>`).join('') || '<li>Nothing</li>';
     const canAnswer = ui.mode === 'local' ? controls(t.to) : t.to === me;
     const canCancel = ui.mode === 'local' ? controls(t.from) : t.from === me;
-    return `<div class="offer ${canAnswer ? 'in' : ''}"><b>${esc(a.name)} → ${esc(b.name)}</b>${t.counterOf ? ' <span class="chip y">Counter-offer</span>' : ''}
-      <div class="tcols"><div><span class="lbl">${esc(a.name)} gives</span><ul>${items(t.give)}</ul></div><div><span class="lbl">${esc(b.name)} gives</span><ul>${items(t.get)}</ul></div></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">${canAnswer ? `<button class="btn small primary" data-trade="tradeAccept" data-id="${t.id}" data-by="${t.to}">${ui.mode === 'local' ? esc(b.name) + ' accepts' : 'Accept'}</button><button class="btn small green" data-counter="${t.id}">Counter</button><button class="btn small" data-trade="tradeDecline" data-id="${t.id}" data-by="${t.to}">Decline</button>` : ''}
-      ${canCancel && !canAnswer ? `<button class="btn small ghost" data-trade="tradeDecline" data-id="${t.id}" data-by="${t.from}">Cancel offer</button>` : ''}</div></div>`;
+    return `<div class="offer ${canAnswer ? 'in' : ''}">
+      <div class="ohead"><span class="avatar sm" style="--pc:${a.color}">${a.token}</span><b>${esc(pname(a))}</b><span class="muted">→</span><span class="avatar sm" style="--pc:${b.color}">${b.token}</span><b>${esc(pname(b))}</b>${t.counterOf ? '<span class="chip y">Counter</span>' : ''}</div>
+      <div class="oside"><span class="lbl">${esc(pname(a))} gives</span><div class="tchips">${chips(t.give)}</div></div>
+      <div class="oside"><span class="lbl">${esc(pname(b))} gives</span><div class="tchips">${chips(t.get)}</div></div>
+      <div class="oact">${canAnswer ? `<button class="btn small primary" data-trade="tradeAccept" data-id="${t.id}" data-by="${t.to}">${ui.mode === 'local' ? esc(b.name) + ' accepts' : 'Accept'}</button><button class="btn small green" data-counter="${t.id}">Counter</button><button class="btn small ghost" data-trade="tradeDecline" data-id="${t.id}" data-by="${t.to}">Decline</button>` : ''}
+      ${canCancel && !canAnswer ? `<span class="small muted" style="flex:1">Waiting for ${esc(b.name)}…</span><button class="btn small ghost" data-trade="tradeDecline" data-id="${t.id}" data-by="${t.from}">Cancel</button>` : ''}</div></div>`;
   }).join('');
   if (!o) return `<div class="empty">No one left to trade with.</div>` + offerList;
+
+  /* the offer builder */
+  const tradable = pid => ownedBy(s, pid).filter(t => !(t.type === 'prop' && groupHasHouses(s, t.group)));
+  const side = (key, who) => {
+    const off = d[key], list = tradable(who.id);
+    return `<div class="tside">
+      <div class="tsh"><span class="avatar sm" style="--pc:${who.color}">${who.token}</span><b>${key === 'give' ? 'You give' : esc(who.name) + ' gives'}</b></div>
+      <div class="tpick">${list.length ? list.map(t => `<button type="button" class="tprop ${off.props.includes(t.i) ? 'on' : ''}" data-tchip="${key}" data-i="${t.i}" style="--gc:${t.type === 'prop' ? GROUPS[t.group].color : '#9aa0c8'}">${esc(t.name)}${s.props[t.i].mort ? ' <small>(mortgaged)</small>' : ''}</button>`).join('') : '<span class="small muted">No property to trade</span>'}</div>
+      <div class="tcash"><span class="lbl">Cash</span>
+        <div class="stepper"><button type="button" class="btn small" data-tstep="${key}" data-v="-50" aria-label="Less cash">−</button><input class="input" type="number" min="0" step="10" inputmode="numeric" id="tc-${key}" data-tc="${key}" value="${off.cash || ''}" placeholder="0" aria-label="Cash in thousands"><button type="button" class="btn small" data-tstep="${key}" data-v="50" aria-label="More cash">+</button></div>
+        <small class="muted">₦k · has ${fmt(who.cash)}</small></div>
+      ${who.jailCards.length ? `<button type="button" class="tprop ${off.cards ? 'on' : ''}" data-tcard2="${key}" style="--gc:#F7C21A">Get out of ${esc(J())} free card</button>` : ''}
+    </div>`;
+  };
+  const empty = !d.give.cash && !d.give.props.length && !d.give.cards && !d.get.cash && !d.get.props.length && !d.get.cards;
   return `<div class="trade">
-    ${offerList ? `<span class="lbl">Offers</span>${offerList}` : ''}
-    ${d.counterOf ? `<div class="note" style="border-color:var(--danfo);color:var(--fg)">Counter-offer to <b>${esc(o.name)}</b>. Their offer is loaded below with the sides swapped. Change what you give or ask for, then send it back.<div style="margin-top:8px"><button class="btn ghost small" data-act="cancelCounter">Cancel counter-offer</button></div></div>` : '<span class="lbl">New offer</span>'}
-    <div class="field"><label for="tradeTo">Trade with</label><select class="input" id="tradeTo" ${d.counterOf ? 'disabled' : ''}>${others.map(x => `<option value="${x.id}" ${x.id === d.to ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
-    <div class="tcols">${col('give', p)}${col('get', o)}</div>
-    <button class="btn primary" data-act="sendTrade">${d.counterOf ? 'Send counter-offer' : 'Send offer'}</button>
+    ${offerList ? `<div class="lbl">Offers</div>${offerList}` : ''}
+    <div class="tbuilder ${d.counterOf ? 'counter' : ''}" id="tbuilder">
+      <div class="tbh">${d.counterOf ? `<b>Counter-offer to ${esc(o.name)}</b><button class="btn ghost small" data-act="cancelCounter">Cancel</button>` : '<b>New offer</b>'}</div>
+      ${d.counterOf ? `<p class="small muted" style="margin:0">Their offer is loaded with the sides swapped. Tap properties or change the cash, then send it back.</p>` : `
+      <div class="partners">${others.map(x => `<button type="button" class="partner ${x.id === d.to ? 'on' : ''}" data-tpartner="${x.id}"><span class="avatar sm" style="--pc:${x.color}">${x.token}</span>${esc(x.name.replace(' (bot)', ''))}</button>`).join('')}</div>`}
+      <div class="tsides">${side('give', p)}<div class="tswap" aria-hidden="true">⇄</div>${side('get', o)}</div>
+      <div class="tfoot"><button class="btn ghost small" data-act="clearTrade" ${empty ? 'disabled' : ''}>Clear</button><button class="btn primary" data-act="sendTrade" ${empty ? 'disabled' : ''}>${d.counterOf ? 'Send counter-offer' : 'Send offer to ' + esc(o.name.replace(' (bot)', ''))}</button></div>
+    </div>
   </div>`;
+}
+function openTradeWith(pid, wantProp) {
+  const s = ui.state; if (!s) return;
+  const me = actorId(); if (!me || pid === me) return;
+  ui.draft = { from: me, to: pid, give: { cash: 0, props: [], cards: 0 }, get: { cash: 0, props: wantProp != null ? [wantProp] : [], cards: 0 } };
+  ui.tab = 'trade'; renderSide();
+  const tb = $('#tbuilder'); if (tb) tb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function logTab(s) {
@@ -3040,13 +3106,19 @@ function chatItems(s) {
   if (!s.chat.length) return '<span class="small muted">No messages yet. Say hello.</span>';
   return s.chat.map(c => { const p = P(s, c.by); return `<div class="msg${c.by === ui.me ? ' mine' : ''}"><b style="color:${p ? p.color : 'var(--muted)'}">${esc(c.name)}</b> ${esc(c.text)}</div>`; }).join('');
 }
-function chatHTML(s) {
+function chatHTML(s, lobby) {
   const canChat = ui.mode === 'online' && !!ui.me;
-  return `<div class="card chatcard" id="chatCard">
-    <div style="display:flex;align-items:center;gap:8px"><span class="lbl" style="flex:1">Room chat</span><span class="small muted">${s.players.length} player${s.players.length === 1 ? '' : 's'}</span></div>
+  const open = lobby || ui.chatOpen !== false;
+  const last = s.chat[s.chat.length - 1];
+  return `<div class="card chatcard ${open ? '' : 'shut'}" id="chatCard">
+    <button type="button" class="chathead" data-act="toggleChat" aria-expanded="${open}"><span class="lbl" style="flex:1;text-align:left">Room chat</span>
+      <span class="badge" id="chatBadge" ${ui.chatUnread ? '' : 'hidden'}>${ui.chatUnread || 0}</span>
+      <span class="small muted" id="chatPeek">${!open && last ? esc(last.name + ': ' + last.text).slice(0, 34) : ''}</span><span class="chev">${open ? '▾' : '▸'}</span></button>
+    <div class="chatbody">
     <div class="chat" id="chatList" aria-live="polite">${chatItems(s)}</div>
     ${canChat ? `<div class="quick">${QUICK.map(q => `<button type="button" class="qchip" data-say="${esc(q)}">${esc(q)}</button>`).join('')}</div>
     <form class="chatform" id="chatform"><input class="input" id="chatIn" maxlength="200" placeholder="Type a message" aria-label="Chat message" autocomplete="off"><button class="btn small primary">Send</button></form>` : ''}
+    </div>
   </div>`;
 }
 function renderChat(s) {
@@ -3064,7 +3136,12 @@ function noticeChat(s) {
   sound('tick');
   const card = $('#chatCard');
   const r = card && card.getBoundingClientRect();
-  const visible = r && r.top < innerHeight && r.bottom > 0;
+  const visible = r && r.top < innerHeight && r.bottom > 0 && ui.chatOpen !== false;
+  if (ui.chatOpen === false) {
+    ui.chatUnread = (ui.chatUnread || 0) + 1;
+    const b = $('#chatBadge'); if (b) { b.hidden = false; b.textContent = ui.chatUnread; }
+    const pk = $('#chatPeek'); if (pk) pk.textContent = (last.name + ': ' + last.text).slice(0, 34);
+  }
   if (!visible) toast(last.name + ': ' + last.text);
 }
 function noticeTrades(s) {
@@ -3133,7 +3210,8 @@ function openDeed(i) {
     body = `<div class="deed"><div class="dh" style="--gc:${gc}">${pic ? `<div class="dpic">${pic}</div>` : ''}<small>${t.type === 'prop' ? GROUPS[t.group].name + ' set' : t.type === 'transport' ? 'Transport' : 'Utility'}</small><h3>${esc(t.name)}</h3></div>
       <table>${rows}</table>
       <div class="df"><div>Price <b>${fmt(t.price)}</b>${t.house ? ` · Each house <b>${fmt(t.house)}</b>` : ''}</div><div>Mortgage value <b>${fmt(t.price / 2)}</b></div>
-      <div>Owner: <b>${owner ? esc(owner.name) : 'Bank (for sale)'}</b>${pr && pr.mort ? ' · <b style="color:#a01c22">Mortgaged</b>' : ''}</div></div></div>`;
+      <div>Owner: <b>${owner ? esc(owner.name) : 'Bank (for sale)'}</b>${pr && pr.mort ? ' · <b style="color:#a01c22">Mortgaged</b>' : ''}</div></div></div>
+      ${owner && s.status === 'playing' && actorId() && owner.id !== actorId() && !owner.bankrupt ? `<button class="btn green block" data-askfor="${owner.id}|${i}">Make ${esc(owner.name.replace(' (bot)', ''))} an offer for this</button>` : ''}`;
   } else {
     const desc = {
       go: `Collect ${fmt(SALARY)} salary every time you pass Start.`,
@@ -3193,7 +3271,7 @@ function renderLobby(s) {
         ${hostBanner()}<p class="note">${lobbyNote(s.code)}</p>
       </div>
       <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-content:start;min-width:0">
-        ${chatHTML(s)}
+        ${chatHTML(s, true)}
         <div class="card" id="lobbySettings"><h3>Rules ${host ? '' : '<span class="muted small">(set by the host)</span>'}</h3>${settingsHTML(s.settings, host, true)}</div>
       </div>
     </div>
@@ -3263,6 +3341,25 @@ document.addEventListener('click', e => {
   if (el.dataset.trade) { dispatch({ type: el.dataset.trade, by: el.dataset.by, id: el.dataset.id }); return; }
   if (el.dataset.join) { joinRoom(el.dataset.join); return; }
   if (el.dataset.watch) { watchRoom(el.dataset.watch); return; }
+  if (el.dataset.tchip && ui.draft) {
+    readTradeInputs();
+    const arr = ui.draft[el.dataset.tchip].props, i = +el.dataset.i, k = arr.indexOf(i);
+    if (k >= 0) arr.splice(k, 1); else arr.push(i);
+    renderSide(); return;
+  }
+  if (el.dataset.tcard2 && ui.draft) { readTradeInputs(); const o = ui.draft[el.dataset.tcard2]; o.cards = o.cards ? 0 : 1; renderSide(); return; }
+  if (el.dataset.tstep && ui.draft) {
+    readTradeInputs();
+    const o = ui.draft[el.dataset.tstep]; o.cash = Math.max(0, (o.cash || 0) + +el.dataset.v);
+    renderSide(); return;
+  }
+  if (el.dataset.tpartner && ui.draft && !ui.draft.counterOf) {
+    readTradeInputs();
+    if (ui.draft.to !== el.dataset.tpartner) { ui.draft.to = el.dataset.tpartner; ui.draft.get = { cash: 0, props: [], cards: 0 }; }
+    renderSide(); return;
+  }
+  if (el.dataset.tradewith) { openTradeWith(el.dataset.tradewith); return; }
+  if (el.dataset.askfor) { closeModal(); const [pid, i] = el.dataset.askfor.split('|'); openTradeWith(pid, +i); return; }
   if (el.dataset.addbot) { dispatch({ type: 'addBot', by: ui.me, level: +el.dataset.addbot }); return; }
   for (const attr of el.getAttributeNames()) {
     const m = attr.match(/^data-blvl-(.+)$/);
@@ -3274,7 +3371,7 @@ document.addEventListener('click', e => {
     if (ui.mode === 'local') ui.actor = tr.to;
     ui.draft = { from: tr.to, to: tr.from, give: cp(tr.get), get: cp(tr.give), counterOf: tr.id };
     ui.tab = 'trade'; renderSide();
-    const tb = $('#tabbody'); if (tb) tb.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const tb = $('#tbuilder'); if (tb) tb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     return;
   }
   if (el.dataset.say) { say(el.dataset.say); return; }
@@ -3319,7 +3416,14 @@ document.addEventListener('click', e => {
     case 'leave-keep': closeModal(); stopOnline(); ui.state = null; ui.shown = null; clearTimeout(ui.botT); clearTimeout(ui.auT); showHome(); break;
     case 'mute': ui.muted = !ui.muted; savePrefs(); el.innerHTML = ui.muted ? ICONS.mute : ICONS.sound; if (!ui.muted) sound('tick'); break;
     case 'close-modal': closeModal(); break;
+    case 'toggleChat': {
+      ui.chatOpen = ui.chatOpen === false; LS.set('nl-chat-open', ui.chatOpen);
+      if (ui.chatOpen) ui.chatUnread = 0;
+      const c = $('#chatCard'); if (c) { const n = document.createElement('div'); n.innerHTML = chatHTML(s, ui.screen === 'lobby'); c.replaceWith(n.firstElementChild); const cl = $('#chatList'); if (cl) cl.scrollTop = cl.scrollHeight; }
+      break;
+    }
     case 'cancelCounter': ui.draft = null; renderSide(); break;
+    case 'clearTrade': if (ui.draft) { ui.draft.give = { cash: 0, props: [], cards: 0 }; ui.draft.get = { cash: 0, props: [], cards: 0 }; } renderSide(); break;
     case 'fly-pick': ui.flyPick = true; $('#boardWrap .board').classList.add('picking'); renderCenter(); break;
     case 'fly-cancel': ui.flyPick = false; $('#boardWrap .board').classList.remove('picking'); renderCenter(); break;
     case 'kickIdle': { const c = cur(s); if (c) dispatch({ type: 'kickIdle', by: ui.me, target: c.id }); break; }
@@ -3342,15 +3446,18 @@ function readTradeInputs() {
   const d = ui.draft; if (!d) return;
   ['give', 'get'].forEach(side => {
     const c = $(`[data-tc="${side}"]`); if (c) d[side].cash = Math.max(0, Math.floor(+c.value || 0));
-    d[side].props = $$(`[data-tp="${side}"]:checked`).map(x => +x.value);
-    const k = $(`[data-tcard="${side}"]`); d[side].cards = k && k.checked ? 1 : 0;
   });
 }
+document.addEventListener('input', e => {
+  if (!e.target.matches('[data-tc]') || !ui.draft) return;
+  readTradeInputs();
+  const d = ui.draft, empty = !d.give.cash && !d.give.props.length && !d.give.cards && !d.get.cash && !d.get.props.length && !d.get.cards;
+  $$('[data-act="sendTrade"],[data-act="clearTrade"]').forEach(b => b.disabled = empty);
+});
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'actorSel') { ui.actor = t.value; ui.draft = null; renderSide(); }
-  if (t.id === 'tradeTo') { readTradeInputs(); ui.draft.to = t.value; ui.draft.get = { cash: 0, props: [], cards: 0 }; renderSide(); }
-  if (t.matches('[data-tp],[data-tcard],[data-tc]')) readTradeInputs();
+  if (t.matches('[data-tc]')) readTradeInputs();
   if (t.matches('[data-pname]') && ui.setup) ui.setup.players[+t.dataset.pname].name = t.value.trim() || 'Player';
 });
 document.addEventListener('focusout', () => { setTimeout(() => { if (ui.sideDirty && !($('#tabbody') && $('#tabbody').contains(document.activeElement))) renderSide(); }, 50); });
