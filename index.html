@@ -263,7 +263,7 @@ body.in-game #game{height:100svh; height:100dvh}
 .board.picking .tile{cursor:crosshair}
 .board.picking .tile:not(.c-jail):not(.c-gojail):hover{box-shadow:inset 0 0 0 3px #3DD68C}
 .board.picking .center{box-shadow:inset 0 0 0 3px #3DD68C, inset 0 0 60px rgba(0,0,0,.35)}
-.note{position:fixed; left:0; top:0; z-index:70; width:34px; height:20px; border-radius:3px; background:linear-gradient(135deg,#2DB46A,#0B7A47); border:1.5px solid #0a4a2b; color:#E8FFE9; font-weight:900; font-size:12px; display:grid; place-items:center; box-shadow:0 4px 10px rgba(0,0,0,.4); pointer-events:none}
+.cashnote{position:fixed; left:0; top:0; z-index:70; width:34px; height:20px; border-radius:3px; background:linear-gradient(135deg,#2DB46A,#0B7A47); border:1.5px solid #0a4a2b; color:#E8FFE9; font-weight:900; font-size:12px; display:grid; place-items:center; box-shadow:0 4px 10px rgba(0,0,0,.4); pointer-events:none}
 .pl.gain{animation:gain .9s ease-out}
 .pl.loss{animation:loss .9s ease-out}
 @keyframes gain{30%{box-shadow:0 0 0 3px #3DD68C, 0 0 22px rgba(61,214,140,.6)}}
@@ -415,6 +415,27 @@ body.in-game #game{height:100svh; height:100dvh}
 .credit a:hover{text-decoration:underline}
 .credit a svg{width:15px; height:15px}
 .credit.compact{font-size:.78rem; padding-block:4px 0; justify-content:flex-start}
+.clock{font-weight:900; color:#fff; background:rgba(0,0,0,.3); border-radius:99px; padding:.2em .8em; font-variant-numeric:tabular-nums; font-size:max(12px, calc(var(--u)*.26))}
+.clock.low{background:var(--bad)}
+.tplayers{display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:6px}
+.tp{display:flex; align-items:center; gap:6px; background:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:6px 8px; font-weight:700; font-size:.88rem; min-width:0}
+.tp > span:nth-child(2){overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tlive{display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between; border-color:var(--danfo); color:var(--fg); background:#2a250a}
+.bracket{display:flex; gap:14px; overflow-x:auto; padding-bottom:8px; align-items:flex-start}
+.bround{flex:none; width:230px; display:grid; gap:8px}
+.qhead{font-family:var(--f-display); font-size:.85rem; color:var(--danfo); margin-top:4px}
+.btable{background:var(--ink-2); border:1.5px solid var(--line); border-radius:12px; padding:10px; display:grid; gap:4px}
+.btable.mine{border-color:var(--danfo)}
+.btable.done{opacity:.92}
+.bth{display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:.85rem}
+.bseat{display:flex; align-items:center; gap:6px; font-size:.86rem; font-weight:700; padding:2px 4px; border-radius:6px; min-width:0}
+.bseat .bn{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bseat.win{background:#2a250a; color:var(--danfo)}
+.bseat.out{opacity:.45; text-decoration:line-through}
+.podium h3{font-family:var(--f-display); font-weight:400; font-size:1.3rem}
+.pods{display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px}
+.pod{display:grid; justify-items:center; gap:6px; background:var(--ink); border:1.5px solid var(--line); border-radius:12px; padding:12px; text-align:center}
+.pod:first-child{border-color:var(--danfo); background:#2a250a}
 .toast{position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); background:var(--fg); color:var(--ink); padding:.7em 1.1em; border-radius:12px; font-weight:700; z-index:60; box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:calc(100% - 32px); text-align:center}
 .toast.err{background:#FFD6D7; color:#5a0f14}
 
@@ -895,6 +916,7 @@ function goBankrupt(s, p, reason) {
   p.jailCards.forEach(d => s.decks[d].push(CARDS[d].findIndex(c => c.fx.t === 'jailFree')));
   p.jailCards = [];
   p.bankrupt = true; p.cash = 0; p.inJail = false;
+  s.outOrder = (s.outOrder || []).concat(p.id);
   s.trades = s.trades.filter(tr => tr.from !== p.id && tr.to !== p.id);
   if (s.auction && s.auction.by === p.id) { s.auction.by = null; s.auction.high = 0; }
   log(s, heir ? `${p.name} went bankrupt. ${heir.name} takes their properties.` : `${p.name} ${reason || 'went bankrupt'}. Their properties go back to the bank.`);
@@ -902,16 +924,29 @@ function goBankrupt(s, p, reason) {
   if (c && c.id === p.id && !s.auction) nextTurn(s);
 }
 
+function netWorth(s, p) {
+  return p.cash + ownedBy(s, p.id).reduce((a, t) => {
+    const pr = s.props[t.i];
+    return a + (pr.mort ? t.price / 2 : t.price) + (pr.houses || 0) * (t.house || 0);
+  }, 0);
+}
+function finishByWorth(s, why) {
+  const alive = active(s).sort((a, b) => netWorth(s, b) - netWorth(s, a));
+  s.ranking = alive.map(p => p.id).concat((s.outOrder || []).slice().reverse());
+  s.status = 'ended'; s.winner = alive[0].id; s.phase = 'over'; s.auction = null;
+  log(s, `${why} ${alive[0].name} wins with the highest net worth (${fmt(netWorth(s, alive[0]))}).`);
+}
 function checkWinner(s) {
   if (s.status !== 'playing') return;
   const a = active(s);
-  if (s.mode === 'online' && a.length > 1 && !a.some(p => !p.bot)) {
+  if (s.mode === 'online' && !s.settings.tourney && a.length > 1 && !a.some(p => !p.bot)) {
     s.status = 'closed'; s.closedReason = 'Every player has left, so the room has closed.';
     log(s, 'Every player has left. Room closed.');
     return;
   }
   if (a.length === 1) {
     s.status = 'ended'; s.winner = a[0].id; s.phase = 'over';
+    s.ranking = [a[0].id].concat((s.outOrder || []).slice().reverse());
     log(s, `${a[0].name} is the Naija Landlord! 🏆`);
   }
 }
@@ -1020,7 +1055,7 @@ const ACTIONS = {
     if (s.settings.randomOrder) shuffle(s.order);
     s.turn = 0; s.phase = 'roll'; s.props = {}; s.pot = 0; s.trades = []; s.auction = null; s.pending = null; s.winner = null; s.card = null;
     s.decks = { wahala: shuffle(CARDS.wahala.map((_, i) => i)), ajo: shuffle(CARDS.ajo.map((_, i) => i)) };
-    s.status = 'playing'; s.turnStarted = s.now;
+    s.status = 'playing'; s.turnStarted = s.now; s.startedAt = s.now; s.outOrder = []; s.ranking = null;
     log(s, `Game on! ${cur(s).name} rolls first.`);
   },
   roll(s, a) {
@@ -1213,7 +1248,8 @@ const ACTIONS = {
   },
   kickIdle(s, a) {
     const c = cur(s), me = P(s, a.by);
-    if (!me || me.bankrupt || !canAct(s, a, a.by)) return 'Only players in the game can do that.';
+    const hostCall = s.settings.tourney && a.actor === s.hostId;
+    if (!hostCall && (!me || me.bankrupt || !canAct(s, a, a.by))) return 'Only players in the game can do that.';
     if (!c || c.id !== a.target || c.bot) return 'You can only remove the player whose turn it is.';
     if (s.auction) return 'Wait for the auction to finish.';
     if (s.now - (s.activeAt || s.turnStarted || 0) < IDLE_MS) return `${c.name} still has time to play.`;
@@ -1231,7 +1267,14 @@ const ACTIONS = {
     p.cash = Math.max(p.cash, 0);
     goBankrupt(s, p, 'was removed by the host');
   },
+  timeUp(s, a) {
+    if (s.mode !== 'local' && a.actor !== s.hostId) return 'Only the host can end the game.';
+    if (s.status !== 'playing' || !s.settings.timeLimit) return 'No time limit.';
+    if (s.now < s.startedAt + s.settings.timeLimit * 60000) return 'Time is not up yet.';
+    finishByWorth(s, 'Time is up!');
+  },
   tradePropose(s, a) {
+    if (s.settings.noTrades) return 'Trading is turned off in tournament games.';
     const p = P(s, a.by), o = P(s, a.to);
     if (!p || !o || p.bankrupt || o.bankrupt || p.id === o.id || !canAct(s, a, a.by)) return 'Pick another player to trade with.';
     if (s.status !== 'playing') return 'Game is not running.';
@@ -1471,6 +1514,7 @@ function botCounter(s, p, tr) {
     get: { cash: tr.give.cash + extra, props: tr.give.props.slice(), cards: tr.give.cards } };
 }
 function botProposeTrade(s, p) {
+  if (s.settings.noTrades) return null;
   const L = lvl(p);
   if (L === 1) return null;
   if (s.trades.some(t => t.from === p.id)) return null;
@@ -1558,7 +1602,7 @@ function botAction(s, bid) {
   return null;
 }
 
-if (typeof module !== 'undefined') module.exports = { reduce, newGame, botAction, buildBoard, fmt, BOARDS, cur, P, T, rentFor, ownsAllAirports, BOT_LEVELS };
+if (typeof module !== 'undefined') module.exports = { reduce, newGame, botAction, buildBoard, fmt, BOARDS, cur, P, T, rentFor, ownsAllAirports, BOT_LEVELS, netWorth };
 
 /* =====================================================================
    NAIJA LANDLORD — interface, animation, local + online play
@@ -2332,6 +2376,7 @@ function renderOnline() {
           <div class="rooms" id="roomList">${roomsHTML()}</div>
         </div>
       </div>
+      ${tourneyCardHTML()}
       <div class="card" id="createSettings">
         <h3>Create a room</h3>
         ${settingsHTML(ui.createSettings, true, true)}
@@ -2743,7 +2788,7 @@ function flyMoney(from, to, amt, delay) {
     let left = notes;
     for (let i = 0; i < notes; i++) {
       const n = document.createElement('div');
-      n.className = 'note'; n.textContent = '₦';
+      n.className = 'cashnote'; n.textContent = '₦';
       document.body.appendChild(n);
       const jx = (Math.random() - .5) * 40, jy = (Math.random() - .5) * 30, lift = 60 + Math.random() * 60;
       const midX = (from.x + to.x) / 2 + jx, midY = Math.min(from.y, to.y) - lift;
@@ -2838,7 +2883,7 @@ function renderCenter() {
   let h = '';
   if (s.status === 'ended') {
     const w = P(s, s.winner);
-    h = `<div class="c-status">🏆 ${esc(w ? w.name : '')} wins!</div><div class="c-actions">${isHost() ? `<button class="btn primary" data-act="rematch">Play again</button>` : ''}<button class="btn" data-act="leave">Home</button></div>`;
+    h = `<div class="c-status">🏆 ${esc(w ? w.name : '')} wins!</div><div class="c-actions">${s.settings.tourney ? `<button class="btn primary" data-act="to-tourney">Back to tournament</button>` : (isHost() ? `<button class="btn primary" data-act="rematch">Play again</button>` : '') + `<button class="btn" data-act="leave">Home</button>`}</div>`;
     el.innerHTML = h; return;
   }
   const mine = c && controls(c.id);
@@ -2878,6 +2923,7 @@ function renderCenter() {
     if (debt) btns += `<button class="btn ghost small" data-tab="props">Manage property</button>` + confirmBtn('bankrupt', 'Declare bankruptcy', 'btn danger small');
     h += `<div class="c-actions">${btns}</div>`;
   }
+  if (s.settings.timeLimit) h += '<div class="clock" id="tclock"></div>';
   h += '<div id="idleBox"></div>';
   if (s.settings.vacationCash && s.pot > 0) h += `<div class="c-pot">${esc(PK())} pot ${fmt(s.pot)}</div>`;
   el.innerHTML = h;
@@ -2938,7 +2984,7 @@ function renderPlayers(s, holdCash) {
         <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? `<span class="chip r">${esc(J())}</span>` : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${p.bot && !p.bankrupt ? `<span class="chip ${p.level === 3 ? 'y' : ''}">${BOT_LEVELS[p.level || 2]}</span>` : ''}${others}</div></div>
       <div class="cash ${p.cash < 0 ? 'neg' : ''}">${fmt(p.cash)}</div>
       ${sets ? `<div class="sets">${sets}</div>` : ''}${kick}
-      ${s.status === 'playing' && !p.bankrupt && actorId() && p.id !== actorId() && !(ui.mode === 'local' && !p.bot && false) ? `<button class="btn ghost small ptrade" data-tradewith="${p.id}">Trade</button>` : ''}
+      ${s.status === 'playing' && !s.settings.noTrades && !p.bankrupt && actorId() && p.id !== actorId() && !(ui.mode === 'local' && !p.bot && false) ? `<button class="btn ghost small ptrade" data-tradewith="${p.id}">Trade</button>` : ''}
     </div>`;
   }).join('');
   const ri = $('#roomInfo');
@@ -3006,6 +3052,7 @@ function propsTab(s, me) {
 
 function tradeTab(s, me) {
   if (s.status !== 'playing') return '<div class="empty">Trading opens once the game starts.</div>';
+  if (s.settings.noTrades) return '<div class="empty">Trading is turned off in tournament games, so every table is won on the board.</div>';
   if (!me) return '<div class="empty">Spectators cannot trade.</div>';
   const p = P(s, me);
   const others = s.players.filter(o => o.id !== me && !o.bankrupt);
@@ -3156,9 +3203,25 @@ function noticeTrades(s) {
   sound('card');
   toast(`${from ? from.name : 'Someone'} sent you a ${t.counterOf ? 'counter-offer' : 'trade offer'}. Open the Trade tab.`);
 }
+function tableHosted() { return false; }
+function hostedTableAct() {}
+function hostedTableSeen() {}
+function hostedTableApply() { return { error: 'Not available.' }; }
+function tourneyCardHTML() { return ''; }
+function backToTourney() { return false; }
 function roomGone(code) { if (ui.db) ui.db.doc('games/' + code).delete().catch(() => {}); }
 /* idle timer: show it, and let other players remove someone who has stalled for a minute */
+function renderClock() {
+  const s = ui.state, el = $('#tclock');
+  if (!el || !s) return;
+  if (s.status !== 'playing' || !s.settings.timeLimit || !s.startedAt) { el.textContent = ''; return; }
+  const left = Math.max(0, s.startedAt + s.settings.timeLimit * 60000 - Date.now());
+  const m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60;
+  el.textContent = `⏱ ${m}:${String(sec).padStart(2, '0')} left${left < 60000 ? ' · highest net worth wins' : ''}`;
+  el.classList.toggle('low', left < 120000);
+}
 function renderIdle() {
+  renderClock();
   const el = $('#idleBox'); const s = ui.state;
   if (!el) return;
   let h = '';
@@ -3211,7 +3274,7 @@ function openDeed(i) {
       <table>${rows}</table>
       <div class="df"><div>Price <b>${fmt(t.price)}</b>${t.house ? ` · Each house <b>${fmt(t.house)}</b>` : ''}</div><div>Mortgage value <b>${fmt(t.price / 2)}</b></div>
       <div>Owner: <b>${owner ? esc(owner.name) : 'Bank (for sale)'}</b>${pr && pr.mort ? ' · <b style="color:#a01c22">Mortgaged</b>' : ''}</div></div></div>
-      ${owner && s.status === 'playing' && actorId() && owner.id !== actorId() && !owner.bankrupt ? `<button class="btn green block" data-askfor="${owner.id}|${i}">Make ${esc(owner.name.replace(' (bot)', ''))} an offer for this</button>` : ''}`;
+      ${owner && s.status === 'playing' && !s.settings.noTrades && actorId() && owner.id !== actorId() && !owner.bankrupt ? `<button class="btn green block" data-askfor="${owner.id}|${i}">Make ${esc(owner.name.replace(' (bot)', ''))} an offer for this</button>` : ''}`;
   } else {
     const desc = {
       go: `Collect ${fmt(SALARY)} salary every time you pass Start.`,
@@ -3241,7 +3304,7 @@ function showWinner(s) {
   const w = P(s, s.winner);
   const ranking = s.players.slice().sort((a, b) => (b.id === s.winner) - (a.id === s.winner));
   openModal(`<div class="win"><div class="trophy">🏆</div><h2>${esc(w ? w.name : '')} wins!</h2><p class="muted">The new Naija Landlord. Everyone else, pack your load.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${isHost() ? `<button class="btn primary" data-act="rematch">Play again</button>` : ''}<button class="btn" data-act="leave">Home</button><button class="btn ghost" data-act="close-modal">See board</button></div></div>`);
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${s.settings.tourney ? `<button class="btn primary" data-act="to-tourney">Back to tournament</button>` : (isHost() ? `<button class="btn primary" data-act="rematch">Play again</button>` : '') + `<button class="btn" data-act="leave">Home</button>`}<button class="btn ghost" data-act="close-modal">See board</button></div></div>`);
   sound('cash');
 }
 
@@ -3289,6 +3352,7 @@ function drive() {
   clearTimeout(ui.auT); clearTimeout(ui.botT);
   const s = ui.state;
   if (!s || s.status !== 'playing' || ui.processing) return;
+  if (tableHosted(s.code)) return;
   const iDrive = ui.mode === 'local' || s.hostId === ui.me;
   const now = Date.now();
   if (s.auction) {
@@ -3407,15 +3471,17 @@ document.addEventListener('click', e => {
       else dispatch({ type: 'rematch', by: ui.me });
       break;
     case 'leave':
+      if (s && s.settings.tourney && !(s.status === 'playing' && P(s, ui.me) && !P(s, ui.me).bankrupt)) { closeModal(); backToTourney(); break; }
       if (ui.mode === 'online' && s && s.status === 'playing' && P(s, ui.me) && !P(s, ui.me).bankrupt) {
         openModal(`<h3>Leave this game?</h3><p class="muted" style="margin:0">If you quit now you go bankrupt and your property goes back to the bank. You can also just close the page and come back, but after a minute of not playing on your turn, other players can remove you.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn danger" data-act="quit-confirm">Quit and go bankrupt</button><button class="btn" data-act="leave-keep">Leave for now</button><button class="btn ghost" data-act="close-modal">Stay</button></div>`);
         break;
       }
       closeModal(); stopOnline(); ui.state = null; ui.shown = null; clearTimeout(ui.botT); clearTimeout(ui.auT); showHome(); break;
-    case 'leave-keep': closeModal(); stopOnline(); ui.state = null; ui.shown = null; clearTimeout(ui.botT); clearTimeout(ui.auT); showHome(); break;
+    case 'leave-keep': if (s && s.settings.tourney) { closeModal(); backToTourney(); break; } closeModal(); stopOnline(); ui.state = null; ui.shown = null; clearTimeout(ui.botT); clearTimeout(ui.auT); showHome(); break;
     case 'mute': ui.muted = !ui.muted; savePrefs(); el.innerHTML = ui.muted ? ICONS.mute : ICONS.sound; if (!ui.muted) sound('tick'); break;
     case 'close-modal': closeModal(); break;
+    case 'to-tourney': closeModal(); backToTourney(); break;
     case 'toggleChat': {
       ui.chatOpen = ui.chatOpen === false; LS.set('nl-chat-open', ui.chatOpen);
       if (ui.chatOpen) ui.chatUnread = 0;
@@ -3548,7 +3614,8 @@ function sub(topic) {
   if (NET.client) NET.client.subscribe(t, { qos: 1 });
 }
 
-function onNetMessage(topic, buf) {
+function onNetMessage(topic, buf) { return netMessageCore(topic, buf); }
+function netMessageCore(topic, buf) {
   if (!topic.startsWith(NET.prefix)) return;
   const t = topic.slice(NET.prefix.length).split('/');
   const txt = buf.toString();
@@ -3564,6 +3631,8 @@ function onNetMessage(topic, buf) {
     if (ui.state && t[1] === ui.state.hostId) { NET.hostOnline = txt !== '0'; rerenderNet(); }
     return;
   }
+  if (t[0] === 'room' && t[2] === 'act' && data && tableHosted(t[1])) { hostedTableAct(t[1], data); return; }
+  if (t[0] === 'room' && t[2] === 'state' && data && t[1] !== ui.code) { hostedTableSeen(t[1], data); return; }
   if (t[0] !== 'room' || t[1] !== ui.code) return;
   if (t[2] === 'state' && data) {
     if (ui.state && data.seq < ui.state.seq && data.hostId === ui.state.hostId) return;
@@ -3662,6 +3731,7 @@ function lobbyNote(code) {
 function hostBanner() {
   const s = ui.state;
   if (!s || ui.mode !== 'online' || s.hostId === ui.me || NET.hostOnline) return '';
+  if (s.settings.tourney) return `<div class="note" style="background:rgba(0,0,0,.35);color:#fff;border-color:var(--danfo)">The organiser's device has gone offline. This tournament game will carry on when they are back.</div>`;
   const canTake = s.playerIds.includes(ui.me) && s.status !== 'ended';
   return `<div class="note" style="background:rgba(0,0,0,.35);color:#fff;border-color:var(--danfo)">The host has gone offline. ${canTake ? 'Wait for them, or take over and run the game from your device.' : 'Waiting for them to come back.'}
     ${canTake ? '<div style="margin-top:8px"><button class="btn primary small" data-net="takeover">Take over as host</button></div>' : ''}</div>`;
@@ -3752,6 +3822,7 @@ function stopOnline() {
 async function onlineDispatch(a) {
   const s = ui.state;
   if (!s) return { error: 'Not in a room.' };
+  if (tableHosted(s.code)) return hostedTableApply(s.code, Object.assign({}, a, { actor: ui.me }));
   if (s.hostId === ui.me) {
     const r = reduce(s, Object.assign({}, a, { actor: ui.me, now: Date.now() }));
     if (r.error) return r;
@@ -3783,6 +3854,397 @@ window.addEventListener('load', () => {
     const go = () => { showOnline(); const j = $('#joinCode'); if (j) j.value = code; };
     setTimeout(go, 50);
   }
+});
+
+/* =====================================================================
+   FREE TOURNAMENTS (web build)
+   The organiser's device runs the tournament: it keeps the bracket and
+   referees every table, the same way a host runs a normal room.
+   Bracket: tables of 4, each table winner moves on. 64 players means
+   16 tables in 4 quadrants, then 4 quadrant finals, then the final table.
+   ===================================================================== */
+const TOUR = { view: null, code: null, dir: null, list: new Map(), listSub: false, topics: [], notified: null, resume: new Set() };
+const TQ = 'ABCD';
+const T_BOT_NAMES = ['Chidi', 'Ngozi', 'Musa', 'Tunde', 'Amaka', 'Emeka', 'Zainab', 'Bisi', 'Kunle', 'Halima', 'Obinna', 'Funke', 'Yakubu', 'Ifeoma', 'Segun', 'Aisha'];
+
+function tsub(topic) {
+  const t = NET.prefix + topic; if (!TOUR.topics.includes(t)) TOUR.topics.push(t);
+  if (!NET.client) return;
+  if (!TOUR.hooked) { TOUR.hooked = true; NET.client.on('connect', () => { TOUR.topics.forEach(x => NET.client.subscribe(x)); if (TOUR.listSub) NET.client.subscribe(NET.prefix + 'tlobby/+'); }); }
+  NET.client.subscribe(t, { qos: 1 });
+}
+
+/* ---------- messages ---------- */
+function onNetMessage(topic, buf) {
+  if (topic.startsWith(NET.prefix + 'tourney/') || topic.startsWith(NET.prefix + 'tlobby/')) {
+    const t = topic.slice(NET.prefix.length).split('/');
+    const txt = buf.toString(); let data = null;
+    if (txt) { try { data = JSON.parse(txt); } catch (e) { return; } }
+    if (t[0] === 'tlobby') { if (!data) TOUR.list.delete(t[1]); else TOUR.list.set(t[1], data); if (ui.screen === 'online') updateTourList(); return; }
+    if (t[2] === 'state' && t[1] === TOUR.code) {
+      if (!data) { if (ui.screen === 'tourney') { toast('This tournament has closed.'); showOnline(); } return; }
+      if (TOUR.view && data.seq < TOUR.view.seq) return;
+      TOUR.view = data;
+      if (data.directorId === ui.me && !TOUR.dir) resumeDirector(data);
+      if (ui.screen === 'tourney') renderTourney();
+      tourNotify(data);
+      return;
+    }
+    if (t[2] === 'act' && TOUR.dir && t[1] === TOUR.dir.code && data) { dirHandle(data); return; }
+    if (t[2] === 'err' && t[3] === ui.me && data) { toast(data.error, true); return; }
+    return;
+  }
+  return netMessageCore(topic, buf);
+}
+
+/* ---------- organiser: tournament rules ---------- */
+function tPlayer(T, id) { return T.players.find(p => p.id === id); }
+function dirApply(a) {
+  const T = TOUR.dir && TOUR.dir.state; if (!T) return { error: 'Tournament not found.' };
+  if (a.type === 'signup') {
+    if (T.status !== 'signup') return { error: 'Sign-ups are closed.' };
+    const name = String(a.name || '').trim().slice(0, 18) || 'Player';
+    const ex = tPlayer(T, a.by);
+    if (ex) { ex.name = name; ex.token = a.token || ex.token; return { ok: 1 }; }
+    if (T.players.length >= T.size) return { error: 'The tournament is full.' };
+    T.players.push({ id: a.by, name, token: TOKENS.some(x => x.e === a.token) ? a.token : TOKENS[T.players.length % TOKENS.length].e });
+    return { ok: 1 };
+  }
+  if (a.type === 'leave') {
+    if (T.status !== 'signup') return { error: 'The tournament has started.' };
+    if (a.by === T.directorId) return { error: 'The organiser cannot leave.' };
+    T.players = T.players.filter(p => p.id !== a.by); return { ok: 1 };
+  }
+  if (a.type === 'start') {
+    if (a.by !== T.directorId) return { error: 'Only the organiser can start.' };
+    if (T.status !== 'signup') return { error: 'Already started.' };
+    if (T.players.length < 2 && !T.botFill) return { error: 'You need at least 2 players.' };
+    if (T.botFill) {
+      let k = 0;
+      while (T.players.length < T.size) {
+        const nm = T_BOT_NAMES[k % T_BOT_NAMES.length] + (k >= T_BOT_NAMES.length ? ' ' + (1 + Math.floor(k / T_BOT_NAMES.length)) : '');
+        T.players.push({ id: 'tbot_' + Math.random().toString(36).slice(2, 8), name: nm, token: TOKENS[k % TOKENS.length].e, bot: true, level: T.botLevel || 2 });
+        k++;
+      }
+    }
+    const ids = shuffle(T.players.map(p => p.id));
+    T.status = 'running'; T.rounds = []; T.startedAt = Date.now();
+    makeRound(T, 0, ids);
+    return { ok: 1 };
+  }
+  return { error: 'Unknown action.' };
+}
+function dirHandle(msg) {
+  if (!msg || !msg.a || !msg.from) return;
+  const r = dirApply(Object.assign({}, msg.a, { by: msg.from }));
+  if (r.error) pub('tourney/' + TOUR.dir.code + '/err/' + msg.from, { error: r.error });
+  else tPublish();
+}
+function tSend(a) {
+  if (TOUR.dir && TOUR.dir.code === TOUR.code) { const r = dirApply(Object.assign({}, a, { by: ui.me })); if (r.error) toast(r.error, true); else tPublish(); return; }
+  pub('tourney/' + TOUR.code + '/act', { a, from: ui.me });
+}
+function tPublish() {
+  const T = TOUR.dir.state;
+  T.seq = (T.seq || 0) + 1; T.updatedAt = Date.now();
+  pub('tourney/' + T.code + '/state', T, true);
+  tLobbyRecord(T);
+}
+function tLobbyRecord(T) {
+  const rec = T.status === 'done' ? null : { code: T.code, name: T.name, prize: T.prize || '', status: T.status, count: T.players.filter(p => !p.bot).length, size: T.size, board: T.board, time: T.timeLimit, updatedAt: Date.now() };
+  pub('tlobby/' + T.code, rec, true);
+}
+setInterval(() => { if (TOUR.dir && NET.connected) tLobbyRecord(TOUR.dir.state); }, 40000);
+
+function chunkTables(ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 4) out.push(ids.slice(i, i + 4));
+  if (out.length > 1 && out[out.length - 1].length === 1) out[out.length - 2].push(out.pop()[0]);
+  return out;
+}
+function makeRound(T, r, ids) {
+  const tables = chunkTables(ids).map((seats, t) => ({ id: `r${r}t${t}`, r, t, seats, room: makeCode(), status: 'playing', ranking: null }));
+  T.rounds[r] = tables;
+  tables.forEach(tb => openTable(T, tb));
+}
+function tableSettings(T, tb) {
+  return Object.assign({}, DEFAULT_SETTINGS, {
+    board: T.board, startCash: BOARDS[T.board].startCash, maxPlayers: 8, public: false,
+    timeLimit: T.timeLimit, noTrades: true, randomOrder: true, tourney: { code: T.code, r: tb.r, t: tb.t },
+  });
+}
+function openTable(T, tb) {
+  let s = newGame({ mode: 'online', code: tb.room, hostId: T.directorId, settings: tableSettings(T, tb) });
+  tb.seats.forEach(id => {
+    const p = tPlayer(T, id);
+    const r = reduce(s, { type: 'join', by: id, actor: id, name: p.bot ? p.name + ' (bot)' : p.name, token: p.token, bot: !!p.bot, level: p.level });
+    if (r.state) s = r.state;
+  });
+  s = reduce(s, { type: 'start', actor: T.directorId }).state;
+  if (!tb.seats.some(id => !tPlayer(T, id).bot)) { simulateTable(s, tb); return; }
+  TOUR.dir.hosts[tb.room] = new TableHost(tb.room, s);
+}
+/* a table with only bots is played out straight away */
+function simulateTable(s, tb) {
+  let now = Date.now();
+  const end = () => s.startedAt + s.settings.timeLimit * 60000;
+  for (let k = 0; k < 30000 && s.status === 'playing'; k++) {
+    now += 800;
+    let act = null;
+    if (now >= end()) act = { type: 'timeUp', actor: s.hostId };
+    else if (s.auction && now >= s.auction.endsAt) act = { type: 'auctionEnd', actor: s.hostId };
+    if (!act) for (const p of s.players) { const b = p.bot && !p.bankrupt && botAction(s, p.id); if (b) { act = Object.assign(b, { actor: s.hostId }); break; } }
+    if (!act && s.auction) { now = s.auction.endsAt; act = { type: 'auctionEnd', actor: s.hostId }; }
+    if (!act) { now = end(); act = { type: 'timeUp', actor: s.hostId }; }
+    act.now = now;
+    const r = reduce(s, act);
+    if (r.error) {
+      if (act.type === 'bid') { now += 7000; continue; }
+      const r2 = reduce(s, { type: 'timeUp', actor: s.hostId, now: end() }); if (r2.state) s = r2.state; break;
+    }
+    s = r.state;
+  }
+  if (s.status === 'playing') { const r3 = reduce(s, { type: 'timeUp', actor: s.hostId, now: end() + 1000 }); if (r3.state) s = r3.state; }
+  setTimeout(() => tableDone(tb.room, s.ranking || [s.winner]), 1500 + Math.random() * 2000);
+}
+function tableDone(room, ranking) {
+  const T = TOUR.dir && TOUR.dir.state; if (!T || T.status !== 'running') return;
+  const r = T.rounds.length - 1, round = T.rounds[r];
+  const tb = round.find(x => x.room === room);
+  if (!tb || tb.status === 'done') return;
+  ranking = (ranking || []).filter(id => tb.seats.includes(id));
+  tb.seats.forEach(id => { if (!ranking.includes(id)) ranking.push(id); });
+  tb.status = 'done'; tb.ranking = ranking;
+  if (round.every(x => x.status === 'done')) {
+    if (round.length === 1) { T.status = 'done'; T.podium = ranking.slice(0, 4); T.champion = ranking[0]; T.endedAt = Date.now(); }
+    else makeRound(T, r + 1, round.map(x => x.ranking[0]));
+  }
+  tPublish();
+}
+
+/* ---------- organiser: refereeing the tables ---------- */
+class TableHost {
+  constructor(code, s, resumed) {
+    this.code = code; this.s = s; this.wait = 0; this.done = false;
+    tsub('room/' + code + '/act');
+    if (!resumed) this.publish();
+  }
+  publish() { pub('room/' + this.code + '/state', this.s, true); }
+  apply(a) {
+    const r = reduce(this.s, Object.assign({}, a, { now: Date.now() }));
+    if (r.error) return r;
+    this.s = r.state; this.publish();
+    if (this.s.status === 'ended' && !this.done) {
+      this.done = true;
+      const ranking = this.s.ranking || [this.s.winner];
+      setTimeout(() => { tableDone(this.code, ranking); pub('room/' + this.code + '/state', null, true); }, 5000);
+    }
+    return r;
+  }
+  handle(msg) {
+    if (!msg.a || !msg.from) return;
+    const r = this.apply(Object.assign({}, msg.a, { actor: msg.from }));
+    if (r.error && !msg.quiet) pub('room/' + this.code + '/err/' + msg.from, { error: r.error });
+  }
+  tick(now) {
+    const s = this.s;
+    if (s.status !== 'playing' || now < this.wait) return;
+    if (s.settings.timeLimit && now >= s.startedAt + s.settings.timeLimit * 60000) { this.apply({ type: 'timeUp', actor: s.hostId }); return; }
+    if (s.auction) {
+      if (now >= s.auction.endsAt) { this.apply({ type: 'auctionEnd', actor: s.hostId }); return; }
+      for (const p of s.players) { const b = p.bot && !p.bankrupt && botAction(s, p.id); if (b && b.type === 'bid') { this.apply(Object.assign(b, { actor: s.hostId })); this.wait = now + 900 + Math.random() * 900; return; } }
+      return;
+    }
+    for (const p of s.players) {
+      if (!p.bot || p.bankrupt) continue;
+      const b = botAction(s, p.id);
+      if (b) { this.apply(Object.assign(b, { actor: s.hostId })); this.wait = now + (b.type === 'roll' ? 2600 : 1000); return; }
+    }
+    // a player who stops playing is removed after 90 seconds on their turn
+    const c = cur(s);
+    if (c && !c.bot && now - (s.activeAt || s.turnStarted || now) > 90000) this.apply({ type: 'kickIdle', by: s.hostId, target: c.id, actor: s.hostId });
+  }
+}
+setInterval(() => { if (!TOUR.dir) return; const now = Date.now(); Object.values(TOUR.dir.hosts).forEach(h => h.tick(now)); }, 500);
+function tableHosted(code) { return !!(TOUR.dir && TOUR.dir.hosts[code] && !TOUR.dir.hosts[code].done); }
+function hostedTableAct(code, msg) { TOUR.dir.hosts[code].handle(msg); }
+function hostedTableApply(code, a) { return TOUR.dir.hosts[code].apply(a); }
+/* after a reload, the organiser picks the live tables back up from the relay */
+function resumeDirector(T) {
+  TOUR.dir = { code: T.code, state: JSON.parse(JSON.stringify(T)), hosts: {} };
+  tsub('tourney/' + T.code + '/act');
+  if (T.status === 'running') {
+    T.rounds[T.rounds.length - 1].filter(tb => tb.status === 'playing').forEach(tb => { TOUR.resume.add(tb.room); tsub('room/' + tb.room + '/state'); });
+  }
+  toast('You are running this tournament. Keep this page open.');
+}
+function hostedTableSeen(code, data) {
+  if (!TOUR.resume.has(code) || !TOUR.dir) return;
+  TOUR.resume.delete(code);
+  if (data.status === 'ended') { tableDone(code, data.ranking || [data.winner]); return; }
+  TOUR.dir.hosts[code] = new TableHost(code, data, true);
+}
+
+/* ---------- creating, listing, joining ---------- */
+function tourneyCardHTML() {
+  return `<div class="card" id="tourCard">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="flex:1">🏆 Tournaments</h3><button class="btn small primary" data-tour="new" ${onlineOK() ? '' : 'disabled'}>Create a tournament</button></div>
+    <p class="small muted" style="margin:0">Free to enter. Tables of 4; the winner of each table moves on until one champion is left.</p>
+    <div class="rooms" id="tourList">${tourListHTML()}</div>
+  </div>`;
+}
+function tourListHTML() {
+  if (!onlineOK()) return '<div class="empty">Tournaments appear here once you are connected.</div>';
+  const cutoff = Date.now() - 150000;
+  const list = Array.from(TOUR.list.values()).filter(r => r && r.updatedAt > cutoff)
+    .sort((a, b) => (a.status === 'signup' ? 0 : 1) - (b.status === 'signup' ? 0 : 1) || b.updatedAt - a.updatedAt);
+  if (!list.length) return '<div class="empty">No tournaments right now. Create one and invite people.</div>';
+  return list.map(r => `<div class="room"><div class="avatar" style="--pc:var(--danfo)">🏆</div>
+    <div class="grow" style="min-width:0"><b>${esc(r.name)}</b> <span class="chip ${r.status === 'signup' ? 'g' : 'y'}">${r.status === 'signup' ? 'Sign-ups open' : 'In progress'}</span>
+    <div class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.count}/${r.size} players · ${esc((BOARDS[r.board] || BOARDS.classic).name)} · ${r.time}-min games${r.prize ? ' · Prize: ' + esc(r.prize) : ''}</div></div>
+    <button class="btn small ${r.status === 'signup' ? 'green' : 'ghost'}" data-tour="open" data-code="${esc(r.code)}">${r.status === 'signup' ? 'View' : 'Watch'}</button></div>`).join('');
+}
+function updateTourList() { const el = $('#tourList'); if (el) el.innerHTML = tourListHTML(); }
+setInterval(() => {
+  if (ui.screen !== 'online') return;
+  if (!TOUR.listSub && NET.client && NET.connected) { TOUR.listSub = true; NET.client.subscribe(NET.prefix + 'tlobby/+'); }
+  updateTourList();
+}, 2000);
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tour]'); if (!b || b.disabled) return;
+  const k = b.dataset.tour;
+  if (k === 'new') openTourForm();
+  else if (k === 'create') createTourney();
+  else if (k === 'open') { if ($('#myName')) readMe(); enterTourney(b.dataset.code); }
+  else if (k === 'join') {
+    const me = { name: ui.prefs.name, token: ui.prefs.token };
+    if (!me.name) { openModal(`<h3>Your name</h3><div class="field"><label for="tJoinName">Name at the table</label><input class="input" id="tJoinName" maxlength="18" placeholder="e.g. Subomi"></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" data-act="close-modal">Cancel</button><button class="btn primary" data-tour="joinname">Join</button></div>`); return; }
+    tSend({ type: 'signup', name: me.name, token: me.token });
+  }
+  else if (k === 'joinname') { const v = ($('#tJoinName').value || '').trim(); if (!v) return; ui.prefs.name = v.slice(0, 18); savePrefs(); closeModal(); tSend({ type: 'signup', name: ui.prefs.name, token: ui.prefs.token }); }
+  else if (k === 'leave') tSend({ type: 'leave' });
+  else if (k === 'start') tSend({ type: 'start' });
+  else if (k === 'play') { ui.tourBack = TOUR.code; enterRoom(b.dataset.room, false); }
+  else if (k === 'back') showOnline();
+  else if (k === 'copy') { const link = location.origin + location.pathname + '#T' + TOUR.code; try { navigator.clipboard.writeText(link).then(() => toast('Invite link copied'), () => toast(link)); } catch (x) { toast(link); } }
+});
+
+function openTourForm() {
+  const me = readMe();
+  if (!me.name || me.name === 'Player') { toast('Type your name first.', true); const n = $('#myName'); if (n) n.focus(); return; }
+  openModal(`<h3>Create a tournament</h3>
+    <div class="field"><label for="tName">Tournament name</label><input class="input" id="tName" maxlength="32" value="${esc(me.name)}'s Cup"></div>
+    <div class="field"><span class="lbl">Players</span><div class="seg" id="tSize">${[8, 16, 32, 64].map(n => `<button type="button" data-v="${n}" class="${n === 16 ? 'on' : ''}">${n}</button>`).join('')}</div></div>
+    <div class="field"><span class="lbl">Board</span><div class="seg" id="tBoard">${Object.entries(BOARDS).map(([k, b]) => `<button type="button" data-v="${k}" class="${k === 'classic' ? 'on' : ''}">${b.name}</button>`).join('')}</div></div>
+    <div class="field"><span class="lbl">Game length</span><div class="seg" id="tTime">${[20, 30, 45, 60].map(n => `<button type="button" data-v="${n}" class="${n === 30 ? 'on' : ''}">${n} min</button>`).join('')}</div></div>
+    <div class="toggle"><div><b>Fill empty seats with bots</b><small>So the tournament can start before every seat is taken.</small></div><label class="switch"><input type="checkbox" id="tBots" checked aria-label="Fill with bots"><span></span></label></div>
+    <div class="field"><span class="lbl">Bot level</span><div class="seg" id="tLvl">${[1, 2, 3].map(l => `<button type="button" data-v="${l}" class="${l === 2 ? 'on' : ''}">${BOT_LEVELS[l]}</button>`).join('')}</div></div>
+    <div class="field"><label for="tPrize">Prize (optional)</label><input class="input" id="tPrize" maxlength="60" placeholder="e.g. ₦20k airtime from our sponsor"></div>
+    <p class="small muted" style="margin:0">Trading is off in tournament games. When time runs out, the player with the highest net worth (cash plus property) wins the table. Your device runs the tournament, so keep this page open until it ends.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn ghost" data-act="close-modal">Cancel</button><button class="btn primary" data-tour="create">Create tournament</button></div>`);
+  $$('#modal .seg').forEach(seg => seg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('button', seg).forEach(x => x.classList.toggle('on', x === b)); }));
+}
+function segVal(id) { const b = $(`#${id} button.on`); return b ? b.dataset.v : null; }
+function createTourney() {
+  const me = { name: ui.prefs.name || 'Organiser', token: ui.prefs.token };
+  const code = makeCode();
+  const T = {
+    code, name: ($('#tName').value || 'Naija Cup').trim().slice(0, 32), prize: ($('#tPrize').value || '').trim().slice(0, 60),
+    size: +segVal('tSize') || 16, board: segVal('tBoard') || 'classic', timeLimit: +segVal('tTime') || 30,
+    botFill: $('#tBots').checked, botLevel: +segVal('tLvl') || 2,
+    directorId: ui.me, status: 'signup', players: [{ id: ui.me, name: me.name, token: me.token }], rounds: [], createdAt: Date.now(), seq: 0,
+  };
+  closeModal();
+  TOUR.dir = { code, state: T, hosts: {} };
+  tsub('tourney/' + code + '/act');
+  tPublish();
+  TOUR.view = JSON.parse(JSON.stringify(T));
+  enterTourney(code);
+}
+function enterTourney(code) {
+  stopOnline(); ui.mode = 'online'; ui.state = null; ui.shown = null;
+  document.body.classList.remove('in-game');
+  if (TOUR.code !== code) TOUR.view = null;
+  TOUR.code = code; ui.screen = 'tourney'; window.scrollTo(0, 0);
+  LS.set('nl-tourney', code);
+  try { history.replaceState(null, '', '#T' + code); } catch (e) {}
+  tsub('tourney/' + code + '/state'); tsub('tourney/' + code + '/err/' + ui.me);
+  if (TOUR.view) renderTourney();
+  else app().innerHTML = `<section class="page screen"><div class="topbar"><button class="btn ghost small" data-tour="back">← Back</button><h1>Tournament</h1></div><div class="note">Loading tournament ${esc(code)}…</div></section>`;
+}
+function backToTourney() {
+  const code = (ui.state && ui.state.settings.tourney && ui.state.settings.tourney.code) || ui.tourBack || LS.get('nl-tourney');
+  if (!code) return false;
+  enterTourney(code); return true;
+}
+function tourNotify(T) {
+  if (T.status !== 'running' || ui.screen === 'game') return;
+  const round = T.rounds[T.rounds.length - 1];
+  const mine = round && round.find(tb => tb.status === 'playing' && tb.seats.includes(ui.me));
+  if (mine && TOUR.notified !== mine.room) { TOUR.notified = mine.room; sound('turn'); toast(`Your ${roundName(T, mine.r)} table is ready. Tap Play.`); }
+}
+
+/* ---------- the tournament page ---------- */
+function roundName(T, r) {
+  if (T.rounds[r] && T.rounds[r].length === 1) return 'Final';
+  if (T.size === 64 && r === 1) return 'Quadrant finals';
+  return 'Round ' + (r + 1);
+}
+function renderTourney() {
+  const T = TOUR.view; if (!T || ui.screen !== 'tourney') return;
+  const me = ui.me, inIt = T.players.some(p => p.id === me), isDir = T.directorId === me;
+  const humans = T.players.filter(p => !p.bot).length;
+  const name = id => { const p = tPlayer(T, id); return p ? p.name : '?'; };
+  const tok = id => { const p = tPlayer(T, id); return p ? p.token : '🎲'; };
+  let body = '';
+  if (T.status === 'signup') {
+    body = `<div class="card">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h3 style="flex:1">Players signed up <span class="muted small">(${humans} of ${T.size})</span></h3>
+        ${inIt ? (isDir ? '' : '<button class="btn small ghost" data-tour="leave">Leave</button>') : `<button class="btn green" data-tour="join" ${T.players.length >= T.size ? 'disabled' : ''}>Join this tournament</button>`}</div>
+      <div class="tplayers">${T.players.map(p => `<div class="tp"><span class="avatar sm" style="--pc:var(--danfo)">${p.token}</span><span>${esc(p.name)}</span>${p.id === T.directorId ? '<span class="chip">Organiser</span>' : ''}${p.id === me ? '<span class="chip y">You</span>' : ''}</div>`).join('')}</div>
+      ${isDir ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn primary big" data-tour="start" ${humans < (T.botFill ? 1 : 2) ? 'disabled' : ''}>Start tournament</button>
+        <span class="small muted">${T.botFill && T.players.length < T.size ? `${T.size - T.players.length} empty seats will be filled with ${BOT_LEVELS[T.botLevel]} bots.` : ''}</span></div>
+        <p class="note" style="margin:0">Tap <b>Copy invite link</b> and share it so people can sign up. Your device runs the tournament, so keep this page open until it ends.</p>`
+        : `<p class="small muted" style="margin:0">Waiting for the organiser to start. When your table is ready, a Play button appears here.</p>`}
+    </div>`;
+  } else {
+    const live = T.status === 'running' && T.rounds[T.rounds.length - 1].find(tb => tb.status === 'playing' && tb.seats.includes(me));
+    if (live) body += `<div class="note tlive"><b>Your ${roundName(T, live.r)} table is live.</b><button class="btn primary" data-tour="play" data-room="${live.room}">Play now</button></div>`;
+    else if (T.status === 'running' && inIt) {
+      const lastRound = T.rounds[T.rounds.length - 1];
+      const myT = lastRound.find(tb => tb.seats.includes(me));
+      const through = myT && myT.status === 'done' && myT.ranking && myT.ranking[0] === me;
+      body += `<div class="note">${through ? 'You won your table and you are through. Waiting for the other tables to finish…' : 'You are out of this tournament. Watch the rest below.'}</div>`;
+    }
+    if (T.status === 'done') {
+      const pod = T.podium || [];
+      body += `<div class="card podium"><h3>🏆 Champion: ${esc(name(pod[0]))}</h3>
+        <div class="pods">${pod.map((id, k) => `<div class="pod"><span class="lbl">${['1st', '2nd', '3rd', '4th'][k]}</span><span class="avatar" style="--pc:${['#F7C21A', '#C7CED9', '#D08A4E', '#5AB0FF'][k]}">${tok(id)}</span><b>${esc(name(id))}</b></div>`).join('')}</div>
+        ${T.prize ? `<p class="small" style="margin:0">Prize: <b>${esc(T.prize)}</b>. The organiser will be in touch with the winner.</p>` : ''}</div>`;
+    }
+    body += `<div class="bracket">${T.rounds.map((round, r) => `<div class="bround"><div class="lbl">${roundName(T, r)}</div>
+      ${round.map((tb, i) => {
+        const q = T.size === 64 && r === 0 && i % 4 === 0 ? `<div class="qhead">Quadrant ${TQ[i / 4]}</div>` : (T.size === 64 && r === 1 ? `<div class="qhead">Quadrant ${TQ[i]}</div>` : '');
+        const seated = tb.seats.includes(me);
+        return `${q}<div class="btable ${tb.status} ${seated ? 'mine' : ''}">
+          <div class="bth"><b>Table ${i + 1}</b><span class="chip ${tb.status === 'done' ? '' : 'g'}">${tb.status === 'done' ? 'Done' : 'Playing'}</span></div>
+          ${tb.seats.map(id => { const rank = tb.ranking ? tb.ranking.indexOf(id) : -1; return `<div class="bseat ${rank === 0 ? 'win' : rank > 0 ? 'out' : ''}"><span>${tok(id)}</span><span class="bn">${esc(name(id))}</span>${id === me ? '<span class="chip y">You</span>' : ''}${rank === 0 ? '👑' : ''}</div>`; }).join('')}
+          ${tb.status === 'playing' ? `<button class="btn small ${seated ? 'primary' : 'ghost'}" data-tour="play" data-room="${tb.room}">${seated ? 'Play' : 'Watch'}</button>` : ''}
+        </div>`;
+      }).join('')}</div>`).join('')}</div>`;
+  }
+  app().innerHTML = `<section class="page screen">
+    <div class="topbar"><button class="btn ghost small" data-tour="back">← Back</button><h1>🏆 ${esc(T.name)}</h1><span class="chip ${T.status === 'signup' ? 'g' : 'y'}">${T.status === 'signup' ? 'Sign-ups open' : T.status === 'running' ? 'In progress' : 'Finished'}</span><span class="sp"></span><button class="btn ghost small" data-tour="copy">Copy invite link</button></div>
+    <p class="muted" style="margin:0">${T.size} players · ${esc(BOARDS[T.board].name)} · ${T.timeLimit}-minute games · no trading${T.prize ? ` · Prize: <b style="color:var(--fg)">${esc(T.prize)}</b>` : ''}</p>
+    ${body}
+    ${creditHTML()}
+  </section>`;
+}
+/* open a tournament straight from an invite link like …/#TABCDE */
+window.addEventListener('load', () => {
+  const h = (location.hash || '').slice(1).toUpperCase();
+  if (/^T[A-Z0-9]{5}$/.test(h)) { const go = () => { if (onlineOK()) enterTourney(h.slice(1)); else setTimeout(go, 500); }; setTimeout(go, 300); }
 });
 
 window.claude && window.claude.hot && window.claude.hot.ready ? window.claude.hot.ready(start) : start((window.claude && window.claude.hot && window.claude.hot.data) || {});
