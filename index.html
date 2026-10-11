@@ -413,7 +413,8 @@ body.in-game #game{height:100svh; height:100dvh}
 .credit b{color:var(--fg)}
 .credit a{color:var(--danfo); font-weight:800; text-decoration:none; display:inline-flex; align-items:center; gap:4px}
 .credit a:hover{text-decoration:underline}
-.credit a svg{width:15px; height:15px}
+.credit a svg, .credit span svg{width:15px; height:15px}
+.credit span{display:inline-flex; align-items:center; gap:4px; color:var(--danfo); font-weight:800}
 .credit.compact{font-size:.78rem; padding-block:4px 0; justify-content:flex-start}
 .clock{font-weight:900; color:#fff; background:rgba(0,0,0,.3); border-radius:99px; padding:.2em .8em; font-variant-numeric:tabular-nums; font-size:max(12px, calc(var(--u)*.26))}
 .clock.low{background:var(--bad)}
@@ -465,6 +466,62 @@ body.in-game #game{height:100svh; height:100dvh}
   .prow{grid-template-columns:auto minmax(0,1fr) auto; }
   .prow .tok-pick{grid-column:1/-1}
   .tcols{grid-template-columns:minmax(0,1fr)}
+}
+/* ---------- phones (and the Lagos Life Games app frame): tighter, thumb-first layout ---------- */
+@media (max-width: 560px){
+  .page{padding-block:10px 36px; gap:12px}
+  .topbar{gap:8px}
+  .topbar h1{font-size:1.2rem}
+  .topbar .code{font-size:1.35rem; letter-spacing:.1em}
+  .topbar .btn.big{padding:.55em 1em; font-size:.95rem}
+  .card{padding:14px; gap:10px; border-radius:14px}
+  .card h3{font-size:1rem}
+  .card > p.small.muted, .card p.note{font-size:.82rem}
+  .note{font-size:.84rem; padding:10px 12px}
+  .btn.big{padding:.65em 1.1em; font-size:1rem}
+  .field{gap:6px}
+  .seg button{padding:.38em .65em; font-size:.84rem}
+  .tok-pick button{width:34px; height:34px; font-size:18px}
+  .input{padding:.55em .75em}
+  /* home */
+  .home.screen{gap:14px; padding-block:14px 30px}
+  .hero{gap:10px}
+  .wordmark{font-size:2.35rem}
+  .tagline{font-size:.92rem; margin-top:12px; line-height:1.45}
+  .preview-wrap{display:none}
+  .modes{gap:10px}
+  .mode{padding:16px; gap:10px; border-radius:16px}
+  .mode h2{font-size:1.15rem}
+  .mode p{font-size:.88rem}
+  .mode .row .btn{flex:1 1 auto}
+  .facts{display:none}
+  .credit{font-size:.78rem; padding-block:6px 64px}
+  #leftPane .credit{display:none}
+  .plist{align-items:stretch}
+  /* music: a small round button in the corner instead of a wide pill */
+  #music{left:auto; right:calc(12px + env(safe-area-inset-right, 0px)); bottom:calc(12px + env(safe-area-inset-bottom, 0px)); align-items:flex-end}
+  .mfab{padding:.6em; gap:4px}
+  .mfab > span{display:none}
+  .mhint{font-size:.74rem; padding:.4em .7em}
+  .mdock{left:auto; right:0}
+  /* game: players become one swipeable row of small cards */
+  body.in-game #game{padding-inline:10px; padding-block:6px; gap:8px}
+  body.in-game #game > .scrollzone{gap:10px; padding-bottom:70px}
+  .gbar .mini{font-size:.9rem}
+  .plist{display:flex !important; gap:8px; overflow-x:auto; padding:2px 2px 6px; scroll-snap-type:x proximity; scrollbar-width:none}
+  .plist::-webkit-scrollbar{display:none}
+  .pl{flex:0 0 auto; width:150px; padding:8px 10px; gap:4px 8px; border-radius:12px; scroll-snap-align:start; align-content:start}
+  .pl .avatar{width:30px; height:30px; font-size:16px}
+  .pl .nm{font-size:.86rem}
+  .pl .cash{font-size:.95rem}
+  .pl .meta{margin-top:1px}
+  .pl .meta .chip{font-size:.62rem; padding:.1em .4em}
+  .pl .ptrade, .pl .kick{grid-column:1/-1; justify-self:stretch; padding:.25em .5em; font-size:.75rem; margin:0}
+  .pl.turn::before{top:8px; bottom:8px}
+  #roomInfo .card{padding:8px 12px}
+  #roomInfo .code{font-size:1.1rem !important}
+  .tabs button{font-size:.8rem; padding:.45em .2em}
+  .chat .chatlist, #chatList{max-height:140px}
 }
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.01ms !important; transition-duration:.01ms !important}
