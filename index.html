@@ -4336,6 +4336,7 @@ const VT = {
 };
 const VT_PRODUCT = 'supporter';
 const VT_STAKES = [0, 100, 500, 1000, 5000];
+const VT_SEAT_WAIT = 30000;   // ms a match player has to reach the table before a bot takes the seat
 
 function inWorld() { return VT.framed; }
 function gamePaused() { return VT.paused && ui.mode === 'local'; }
@@ -4512,7 +4513,23 @@ function vtMaybeStart() {
   const s = ui.state, m = VT.match;
   if (!s || !m || ui.mode !== 'online' || s.hostId !== ui.me || s.status !== 'lobby' || s.settings.vatarMatch !== m.id || m.status !== 'playing') return;
   const need = (m.players || []).map(p => vtSid(p.id));
-  if (!need.length || !need.every(id => s.playerIds.includes(id))) return;
+  if (!need.length) return;
+  const missing = (m.players || []).filter(p => !s.playerIds.includes(vtSid(p.id)));
+  if (missing.length) {
+    /* someone who never reaches the table (or the sandbox test bot) gets a bot in their seat */
+    if (VT.waitFor !== m.id) { VT.waitFor = m.id; VT.waitSince = Date.now(); }
+    const left = VT_SEAT_WAIT - (Date.now() - VT.waitSince);
+    clearTimeout(VT.waitT);
+    if (left > 0) { VT.waitT = setTimeout(vtMaybeStart, left + 200); return; }
+    if (VT.filling === m.id) return;
+    VT.filling = m.id;
+    (async () => {
+      for (const p of missing) await dispatch({ type: 'join', by: vtSid(p.id), name: String(p.name || 'Player').slice(0, 12) + ' (bot)', bot: true, level: 2 }, true);
+      VT.filling = null;
+      setTimeout(vtMaybeStart, 300);
+    })();
+    return;
+  }
   if (VT.starting === m.id) return;
   VT.starting = m.id;
   dispatch({ type: 'start', by: ui.me });
@@ -4606,7 +4623,7 @@ function vtRerender() {
 }
 function lobbyNote(code) {
   const s = ui.state;
-  if (s && s.settings && s.settings.vatarMatch) return `Lagos Life match table. The game starts by itself once all ${s.settings.maxPlayers} players are here${s.settings.vatarStake ? `, and the winner takes the ${vtMoney(s.settings.vatarStake * s.settings.maxPlayers)} Lagos Life in-game pot (less the house cut)` : ''}. Keep this page open.`;
+  if (s && s.settings && s.settings.vatarMatch) return `Lagos Life match table. The game starts by itself once all ${s.settings.maxPlayers} players are here. Anyone not here 30 seconds after the match fills is played by a bot${s.settings.vatarStake ? `, and the winner takes the ${vtMoney(s.settings.vatarStake * s.settings.maxPlayers)} Lagos Life in-game pot (less the house cut)` : ''}. Keep this page open.`;
   if (VT.framed) return `Share the code <b>${esc(code)}</b>. Friends tap <b>Play online</b> in Naija Landlord and type the code.`;
   return `Share the code <b>${esc(code)}</b>, or send this link: <b>${esc(location.origin + location.pathname)}#${esc(code)}</b>. Keep this page open while you host; the game runs from your device.`;
 }
