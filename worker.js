@@ -47,6 +47,8 @@ export default {
     const h = new Headers(res.headers);
     h.set('Content-Security-Policy', FRAME_ANCESTORS);
     h.delete('X-Frame-Options');
+    // always check for a newer game page, so updates show up straight away (GitHub Pages lets browsers keep it 10 minutes)
+    if ((h.get('content-type') || '').includes('text/html')) h.set('Cache-Control', 'no-cache');
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
   },
 };
