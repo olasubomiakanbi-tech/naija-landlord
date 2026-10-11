@@ -1319,6 +1319,7 @@ const ACTIONS = {
   },
   kick(s, a) {
     if (s.mode !== 'local' && a.actor !== s.hostId) return 'Only the host can do that.';
+    if (s.settings.vatarMatch || s.settings.tourney) return 'In matches and tournaments, players can only be removed for not playing for a minute.';
     const p = P(s, a.target);
     if (!p || p.bankrupt) return 'Player not found.';
     p.cash = Math.max(p.cash, 0);
@@ -3044,7 +3045,7 @@ function renderPlayers(s, holdCash) {
       return n ? `<i title="${GROUPS[g].name}: ${n} of ${tiles.length}" style="background:${GROUPS[g].color};width:${n === tiles.length ? 18 : 8}px"></i>` : '';
     }).join('');
     const others = ['transport', 'utility'].map(ty => { const n = countOwned(s, p.id, ty); return n ? `<span class="chip">${n} ${ty === 'transport' ? 'transport' : 'utility'}</span>` : ''; }).join('');
-    const kick = ui.mode === 'online' && isHost() && p.id !== ui.me && !p.bankrupt && s.status === 'playing'
+    const kick = ui.mode === 'online' && isHost() && p.id !== ui.me && !p.bankrupt && s.status === 'playing' && !s.settings.vatarMatch && !s.settings.tourney
       ? `<button class="btn ghost small kick" data-confirm="kick:${p.id}">${ui.confirm === 'kick:' + p.id ? 'Confirm' : 'Remove'}</button>` : '';
     return `<div class="pl ${p.id === curId && s.status === 'playing' ? 'turn' : ''} ${p.bankrupt ? 'out' : ''}" data-pid="${p.id}">
       <div class="avatar" style="--pc:${p.color}">${p.token}</div>
