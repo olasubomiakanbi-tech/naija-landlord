@@ -470,7 +470,6 @@ body.in-game #game{height:100svh; height:100dvh}
   *{animation-duration:.01ms !important; transition-duration:.01ms !important}
 }
 </style>
-<script src="https://unpkg.com/mqtt@5.16.0/dist/mqtt.min.js"></script>
 </head><body><div id="app"></div><script>
 /* =====================================================================
    NAIJA LANDLORD — game engine
@@ -3573,12 +3572,67 @@ function start(data) {
    These function declarations replace the claude.ai storage versions.
    ===================================================================== */
 const NET = {
-  broker: (new URLSearchParams(location.search)).get('broker') || 'wss://broker.emqx.io:8084/mqtt',
+  /* our own relay on the Cloudflare Worker, over normal HTTPS so strict networks still connect */
+  broker: (new URLSearchParams(location.search)).get('broker') || 'wss://naijalandlord.app/relay',
   prefix: 'naijalandlord/v2/',
   client: null, connected: false, ready: null,
   roomTopics: [], lobby: new Map(), lobbySub: false,
   hostOnline: true, presenceSub: null, actSub: false, joinWait: null,
 };
+
+/* A small client for our relay with the same calls the game makes on an MQTT client:
+   connect events, publish (with retain), subscribe/unsubscribe, a last-will message,
+   automatic reconnects and a queue for messages sent while offline. */
+function RelayClient(url, opts) {
+  this.url = url; this.opts = opts || {}; this.h = {}; this.subs = new Set(); this.queue = [];
+  this.connected = false; this.ws = null; this.open();
+}
+RelayClient.prototype.on = function (ev, fn) { (this.h[ev] = this.h[ev] || []).push(fn); return this; };
+RelayClient.prototype.emit = function (ev, ...a) { (this.h[ev] || []).forEach(fn => { try { fn(...a); } catch (e) { console.error(e); } }); };
+RelayClient.prototype.open = function () {
+  let ws;
+  try { ws = new WebSocket(this.url); } catch (e) { this.retry(); return; }
+  this.ws = ws;
+  const killer = setTimeout(() => { try { ws.close(); } catch (e) {} }, this.opts.connectTimeout || 10000);
+  ws.onopen = () => {
+    clearTimeout(killer);
+    this.connected = true;
+    const w = this.opts.will;
+    if (w) ws.send(JSON.stringify({ t: 'will', topic: w.topic, p: String(w.payload), r: !!w.retain }));
+    this.subs.forEach(t => ws.send(JSON.stringify({ t: 'sub', topic: t })));
+    const q = this.queue; this.queue = [];
+    q.forEach(m => ws.send(m));
+    clearInterval(this.pinger);
+    this.pinger = setInterval(() => { if (ws.readyState === 1) ws.send('{"t":"ping"}'); }, 25000);
+    this.emit('connect');
+  };
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m && m.t === 'msg') this.emit('message', m.topic, m.p == null ? '' : String(m.p));
+  };
+  ws.onerror = () => this.emit('error', new Error('relay error'));
+  ws.onclose = () => {
+    clearTimeout(killer); clearInterval(this.pinger);
+    if (this.ws !== ws) return;
+    const was = this.connected; this.connected = false;
+    if (was) { this.emit('close'); this.emit('offline'); }
+    this.retry();
+  };
+};
+RelayClient.prototype.retry = function () {
+  if (this.ended) return;
+  clearTimeout(this.rt);
+  this.rt = setTimeout(() => this.open(), this.opts.reconnectPeriod || 2500);
+};
+RelayClient.prototype.send = function (obj) {
+  const m = JSON.stringify(obj);
+  if (this.ws && this.ws.readyState === 1) this.ws.send(m);
+  else if (obj.t === 'pub') { this.queue.push(m); if (this.queue.length > 200) this.queue.shift(); }
+};
+RelayClient.prototype.publish = function (topic, payload, o) { this.send({ t: 'pub', topic, p: payload == null ? '' : String(payload), r: !!(o && o.retain) }); return this; };
+RelayClient.prototype.subscribe = function (topic) { [].concat(topic).forEach(t => { if (!this.subs.has(t)) { this.subs.add(t); this.send({ t: 'sub', topic: t }); } }); return this; };
+RelayClient.prototype.unsubscribe = function (topic) { [].concat(topic).forEach(t => { if (this.subs.delete(t)) this.send({ t: 'unsub', topic: t }); }); return this; };
+RelayClient.prototype.end = function () { this.ended = true; clearTimeout(this.rt); try { this.ws && this.ws.close(); } catch (e) {} };
 
 function myId() {
   let id = LS.get('nl-id');
@@ -3589,8 +3643,9 @@ function myId() {
 function netConnect() {
   if (NET.ready) return NET.ready;
   NET.ready = new Promise(resolve => {
-    if (!window.mqtt) { resolve(false); return; }
-    const c = window.mqtt.connect(NET.broker, {
+    const useRelay = /\/relay$/.test(NET.broker);
+    if (!useRelay && !window.mqtt) { resolve(false); return; }
+    const c = (useRelay ? (u, o) => new RelayClient(u, o) : window.mqtt.connect)(NET.broker, {
       clientId: 'nl_' + ui.me + '_' + TAB_ID, clean: true, keepalive: 30,
       reconnectPeriod: 2500, connectTimeout: 10000,
       will: { topic: NET.prefix + 'presence/' + ui.me, payload: '0', retain: true, qos: 0 },
