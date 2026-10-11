@@ -1,5 +1,5 @@
 {
-  // Cloudflare reads this file when it builds the Worker from GitHub.
+  // Cloudflare reads this file when it builds the Worker from GitHub v2.
   "name": "naija-landlord",
   "main": "worker.js",
   "compatibility_date": "2025-09-01",
