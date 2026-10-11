@@ -998,10 +998,11 @@ const ACTIONS = {
     let ex = P(s, a.by);
     const taken = s.players.filter(p => p.id !== a.by).map(p => p.token);
     let token = TOKENS.some(t => t.e === a.token) && !taken.includes(a.token) ? a.token : (TOKENS.find(t => !taken.includes(t.e)) || TOKENS[0]).e;
-    if (ex) { ex.name = name; ex.token = token; return; }
+    if (ex) { ex.name = name; ex.token = token; if (a.badge) ex.badge = 1; return; }
     if (s.players.length >= s.settings.maxPlayers) return 'This room is full.';
     const np = newPlayer(s, a.by, name, token, !!a.bot);
     if (a.bot) np.level = [1, 2, 3].includes(+a.level) ? +a.level : 2;
+    else if (a.badge) np.badge = 1;
     s.players.push(np);
     s.playerIds = s.players.map(p => p.id);
     log(s, `${name} joined.`);
@@ -1696,6 +1697,13 @@ function sound(kind) {
    public Radio Browser directory (radio-browser.info), so new stations appear by themselves.
    Live radio is the same moment for everyone, so a whole room hears the same song together:
    the host picks the station and everyone else tunes in to it. */
+/* hooks the Lagos Life build replaces */
+function inWorld() { return false; }        // true when running inside the Lagos Life / NaijaLife Games app
+function gamePaused() { return false; }
+function stateSeen() {}
+function homeExtraHTML() { return ''; }
+function onlineExtraHTML() { return ''; }
+function joinExtras() { return {}; }
 var EMBEDS_OK = false;   // true in the web build; the claude.ai page can only play the Game beat
 const RB_HOSTS = ['https://de1.api.radio-browser.info', 'https://de2.api.radio-browser.info', 'https://fi1.api.radio-browser.info', 'https://all.api.radio-browser.info'];
 const RB_Q = '&order=clickcount&reverse=true&hidebroken=true&limit=';
@@ -1831,6 +1839,7 @@ function stopMusicAll() {
 function followTrack(tr) {
   if (!tr || !tr.url) return;
   music.follow = true; music.lastRoomTrack = tr;
+  if (inWorld() && !music.unlocked) { renderMusic(); return; }   // sound only after a tap
   if (!mpref.on || mpref.mode === 'beat' || !EMBEDS_OK) { renderMusic(); return; }
   if (!music.current || music.current.u !== tr.u) tune({ u: tr.u, url: tr.url, n: tr.n, c: tr.c }, false);
   else renderMusic();
@@ -2032,7 +2041,7 @@ function propArt(boardKey, key) { const m = ART_MAP[boardKey] || ART_MAP.classic
 
 /* credit */
 function creditHTML(compact) {
-  return `<footer class="credit${compact ? ' compact' : ''}">Built by <b>Olasubomi Akanbi</b><span class="dot">·</span><a href="https://instagram.com/subomi.a_" target="_blank" rel="noopener">${ICONS.insta}@subomi.a_</a></footer>`;
+  return `<footer class="credit${compact ? ' compact' : ''}">Built by <b>Olasubomi Akanbi</b><span class="dot">·</span>${inWorld() ? `<span>${ICONS.insta}@subomi.a_</span>` : `<a href="https://instagram.com/subomi.a_" target="_blank" rel="noopener">${ICONS.insta}@subomi.a_</a>`}</footer>`;
 }
 
 /* ---------------- board geometry ---------------- */
@@ -2154,6 +2163,7 @@ function showHome() {
       </div>
       <div class="preview-wrap">${boardHTML('classic', false)}</div>
     </div>
+    ${homeExtraHTML() ? `<div class="modes">${homeExtraHTML()}</div>` : ''}
     <div class="modes">
       <div class="mode">
         <div class="kicker">In person</div>
@@ -2362,6 +2372,7 @@ function renderOnline() {
     <div class="topbar"><button class="btn ghost small" data-act="home">← Back</button><h1>Play online</h1></div>
     ${msg ? `<div class="note">${esc(msg)}</div>` : ''}
     <div class="cols">
+      ${onlineExtraHTML()}
       <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-content:start;min-width:0">
         <div class="card">
           <h3>You</h3>
@@ -2426,7 +2437,7 @@ async function loadRooms() {
 function readMe() {
   const n = $('#myName'); if (n) ui.prefs.name = n.value.trim().slice(0, 18);
   savePrefs();
-  return { name: ui.prefs.name || 'Player', token: ui.prefs.token };
+  return Object.assign({ name: ui.prefs.name || 'Player', token: ui.prefs.token }, joinExtras());
 }
 function savePrefs() { LS.set('nl-prefs', { name: ui.prefs.name, token: ui.prefs.token, muted: ui.muted }); }
 function makeCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 5; i++) c += A[Math.floor(Math.random() * A.length)]; return c; }
@@ -2526,6 +2537,7 @@ async function dispatch(a, quiet) {
    ===================================================================== */
 function setState(s) {
   ui.state = s;
+  try { stateSeen(s); } catch (e) {}
   if (ui.mode === 'local') LS.set('nl-local', s);
   if (ui.processing) { ui.pendingState = s; return; }
   process(s);
@@ -2883,7 +2895,7 @@ function renderCenter() {
   let h = '';
   if (s.status === 'ended') {
     const w = P(s, s.winner);
-    h = `<div class="c-status">🏆 ${esc(w ? w.name : '')} wins!</div><div class="c-actions">${s.settings.tourney ? `<button class="btn primary" data-act="to-tourney">Back to tournament</button>` : (isHost() ? `<button class="btn primary" data-act="rematch">Play again</button>` : '') + `<button class="btn" data-act="leave">Home</button>`}</div>`;
+    h = `<div class="c-status">🏆 ${esc(w ? w.name : '')} wins!</div><div class="c-actions">${s.settings.tourney ? `<button class="btn primary" data-act="to-tourney">Back to tournament</button>` : (isHost() && !s.settings.vatarMatch ? `<button class="btn primary" data-act="rematch">Play again</button>` : '') + `<button class="btn" data-act="leave">Home</button>`}</div>`;
     el.innerHTML = h; return;
   }
   const mine = c && controls(c.id);
@@ -2980,7 +2992,7 @@ function renderPlayers(s, holdCash) {
       ? `<button class="btn ghost small kick" data-confirm="kick:${p.id}">${ui.confirm === 'kick:' + p.id ? 'Confirm' : 'Remove'}</button>` : '';
     return `<div class="pl ${p.id === curId && s.status === 'playing' ? 'turn' : ''} ${p.bankrupt ? 'out' : ''}" data-pid="${p.id}">
       <div class="avatar" style="--pc:${p.color}">${p.token}</div>
-      <div style="min-width:0"><div class="nm">${esc(p.name)}</div>
+      <div style="min-width:0"><div class="nm">${esc(p.name)}${p.badge ? ' <span title="Supporter">👑</span>' : ''}</div>
         <div class="meta">${ui.mode === 'online' && p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.id === s.hostId && ui.mode === 'online' ? '<span class="chip">Host</span>' : ''}${p.inJail ? `<span class="chip r">${esc(J())}</span>` : ''}${p.jailCards.length ? `<span class="chip g">${p.jailCards.length} free card</span>` : ''}${p.bankrupt ? '<span class="chip r">Bankrupt</span>' : ''}${p.bot && !p.bankrupt ? `<span class="chip ${p.level === 3 ? 'y' : ''}">${BOT_LEVELS[p.level || 2]}</span>` : ''}${others}</div></div>
       <div class="cash ${p.cash < 0 ? 'neg' : ''}">${fmt(p.cash)}</div>
       ${sets ? `<div class="sets">${sets}</div>` : ''}${kick}
@@ -3304,7 +3316,7 @@ function showWinner(s) {
   const w = P(s, s.winner);
   const ranking = s.players.slice().sort((a, b) => (b.id === s.winner) - (a.id === s.winner));
   openModal(`<div class="win"><div class="trophy">🏆</div><h2>${esc(w ? w.name : '')} wins!</h2><p class="muted">The new Naija Landlord. Everyone else, pack your load.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${s.settings.tourney ? `<button class="btn primary" data-act="to-tourney">Back to tournament</button>` : (isHost() ? `<button class="btn primary" data-act="rematch">Play again</button>` : '') + `<button class="btn" data-act="leave">Home</button>`}<button class="btn ghost" data-act="close-modal">See board</button></div></div>`);
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">${s.settings.tourney ? `<button class="btn primary" data-act="to-tourney">Back to tournament</button>` : (isHost() && !s.settings.vatarMatch ? `<button class="btn primary" data-act="rematch">Play again</button>` : '') + `<button class="btn" data-act="leave">Home</button>`}<button class="btn ghost" data-act="close-modal">See board</button></div></div>`);
   sound('cash');
 }
 
@@ -3326,7 +3338,7 @@ function renderLobby(s) {
       <div class="card">
         <h3>Players <span class="muted small">(${s.players.length} of ${s.settings.maxPlayers})</span></h3>
         <div style="display:grid;gap:8px">${s.players.map(p => `
-          <div class="room"><div class="avatar" style="--pc:${p.color}">${p.token}</div><div class="grow"><b>${esc(p.name)}</b> ${p.id === s.hostId ? '<span class="chip">Host</span>' : ''}${p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.bot ? `<span class="chip ${p.level === 3 ? 'y' : ''}">${BOT_LEVELS[p.level || 2]} bot</span>` : ''}
+          <div class="room"><div class="avatar" style="--pc:${p.color}">${p.token}</div><div class="grow"><b>${esc(p.name)}</b>${p.badge ? ' 👑' : ''} ${p.id === s.hostId ? '<span class="chip">Host</span>' : ''}${p.id === ui.me ? '<span class="chip y">You</span>' : ''}${p.bot ? `<span class="chip ${p.level === 3 ? 'y' : ''}">${BOT_LEVELS[p.level || 2]} bot</span>` : ''}
             ${p.bot && host ? `<div style="margin-top:6px">${levelSeg(p.level, 'data-blvl-' + p.id)}</div>` : ''}</div>
           ${host && p.id !== ui.me ? `<button class="btn ghost small" data-remove="${p.id}">Remove</button>` : ''}</div>`).join('')}</div>
         ${host ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="lbl">Add a bot</span>${[1, 2, 3].map(l => `<button class="btn small ${l === 3 ? 'primary' : ''}" data-addbot="${l}" title="${BOT_TIPS[l]}" ${s.players.length >= s.settings.maxPlayers ? 'disabled' : ''}>+ ${BOT_LEVELS[l]}</button>`).join('')}</div>` : ''}
@@ -3350,6 +3362,7 @@ function renderLobby(s) {
    ===================================================================== */
 function drive() {
   clearTimeout(ui.auT); clearTimeout(ui.botT);
+  if (gamePaused()) return;
   const s = ui.state;
   if (!s || s.status !== 'playing' || ui.processing) return;
   if (tableHosted(s.code)) return;
@@ -3544,7 +3557,7 @@ document.addEventListener('keydown', e => {
    ===================================================================== */
 function start(data) {
   renderMusic();
-  if (EMBEDS_OK && mpref.on && mpref.mode !== 'beat') startMusic();
+  if (EMBEDS_OK && mpref.on && mpref.mode !== 'beat' && !inWorld()) startMusic();
   else if (EMBEDS_OK) loadStations(mpref.mode === 'beat' ? 'naija' : mpref.mode);
   window.claude && window.claude.hot && window.claude.hot.snapshot && window.claude.hot.snapshot(() => ({ local: ui.mode === 'local' ? ui.state : null }));
   if (data && data.local && data.local.status === 'playing') enterLocal(data.local);
@@ -3701,7 +3714,7 @@ function afterState(s) {
   if (NET.pendingJoin && s.status === 'lobby' && !s.playerIds.includes(ui.me)) {
     const pj = NET.pendingJoin; NET.pendingJoin = null;
     if (s.players.length >= s.settings.maxPlayers) toast('That room is full. You are watching.', true);
-    else pub('room/' + s.code + '/act', { a: { type: 'join', by: ui.me, name: pj.name, token: pj.token }, from: ui.me });
+    else pub('room/' + s.code + '/act', { a: { type: 'join', by: ui.me, name: pj.name, token: pj.token, badge: pj.badge }, from: ui.me });
   } else if (NET.pendingJoin && s.status !== 'lobby' && !s.playerIds.includes(ui.me)) {
     NET.pendingJoin = null; toast('This game has already started. You are watching.');
   }
@@ -3770,7 +3783,7 @@ async function createRoom() {
   if (!me.name || me.name === 'Player') { toast('Type your name first.', true); $('#myName') && $('#myName').focus(); return; }
   const code = makeCode();
   let s = newGame({ mode: 'online', code, hostId: ui.me, settings: ui.createSettings });
-  s = reduce(s, { type: 'join', by: ui.me, actor: ui.me, name: me.name, token: me.token }).state;
+  s = reduce(s, { type: 'join', by: ui.me, actor: ui.me, name: me.name, token: me.token, badge: me.badge }).state;
   await enterRoom(code, true);
   commit(s);
 }
@@ -4246,6 +4259,368 @@ window.addEventListener('load', () => {
   const h = (location.hash || '').slice(1).toUpperCase();
   if (/^T[A-Z0-9]{5}$/.test(h)) { const go = () => { if (onlineOK()) enterTourney(h.slice(1)); else setTimeout(go, 500); }; setTimeout(go, 300); }
 });
+
+/* =====================================================================
+   LAGOS LIFE / NAIJALIFE GAMES APP  (Vatar Games SDK v1)
+   Switches on only when the game runs inside the Lagos Life Games app.
+   - the player's Lagos Life name and id
+   - "Supporter crown" purchase, checked and delivered by our server
+   - Lagos Life leaderboard (best winning net worth)
+   - Lagos Life matches (2-4 seats, friendly or in-game stake) played in
+     our own online rooms; our server signs and reports the result
+   - pause / resume, and sound only after the first tap
+   Our server lives at  <this site>/vatar/*  (a Cloudflare Worker).
+   ===================================================================== */
+const VT = {
+  framed: (() => { try { return window.parent !== window; } catch (e) { return true; } })(),
+  sdkUrl: (new URLSearchParams(location.search)).get('vsdk') || 'https://lagoslife.app/sdk/vatar-games-v1.js',
+  api: (new URLSearchParams(location.search)).get('vapi') || (location.origin + '/vatar'),
+  sdk: null, player: null, session: null, sessionAt: 0, mode: null,
+  owned: [], match: null, paused: false, musicWas: false,
+  seats: 4, stake: 0, reported: {}, scored: {}, claiming: new Set(), busy: false,
+};
+const VT_PRODUCT = 'supporter';
+const VT_STAKES = [0, 100, 500, 1000, 5000];
+
+function inWorld() { return VT.framed; }
+function gamePaused() { return VT.paused && ui.mode === 'local'; }
+function joinExtras() { return VT.owned.includes(VT_PRODUCT) ? { badge: 1 } : {}; }
+function vtSid(id) { return String(id || '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 48); }
+function vtCode(m) { return String(m.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6); }
+function vtMoney(n) { return '₦' + Number(n || 0).toLocaleString('en-NG'); }
+function vtErr(e) { return (e && e.code) || 'error'; }
+
+function vtLoadSdk() {
+  return new Promise(res => {
+    if (window.Vatar) return res(window.Vatar);
+    const sc = document.createElement('script');
+    sc.src = VT.sdkUrl; sc.async = true;
+    sc.onload = () => res(window.Vatar || null);
+    sc.onerror = () => res(null);
+    document.head.appendChild(sc);
+  });
+}
+
+async function vtBoot() {
+  if (!VT.framed) return;
+  const V = await vtLoadSdk();
+  if (!V) return;
+  let r;
+  try { r = await V.init(); } catch (e) { return; }      // not_framed etc: behave like the normal site
+  if (!r || !r.player) return;
+  VT.sdk = V; VT.player = r.player; VT.session = r.session; VT.sessionAt = Date.now(); VT.mode = r.mode;
+  document.body.classList.add('in-world');
+  if (!ui.prefs.name) { ui.prefs.name = String(r.player.name || '').slice(0, 18); savePrefs(); }
+  V.onPause(vtPause);
+  V.onResume(vtResume);
+  V.onPurchase(p => p && vtClaim(p.purchaseId));
+  V.match.onUpdate(vtMatchUpdate);
+  vtRefreshOwned();
+  V.match.current().then(m => { if (m) vtMatchUpdate(m); }).catch(() => {});
+}
+
+/* ---------- talking to our server ---------- */
+async function vtSession() {
+  if (Date.now() - VT.sessionAt > 10 * 60 * 1000) {
+    const r = await VT.sdk.session();
+    VT.session = r.session; VT.sessionAt = Date.now();
+  }
+  return VT.session;
+}
+async function vtPost(path, body) {
+  const session = await vtSession();
+  const res = await fetch(VT.api + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign({ session, mode: VT.mode }, body || {})) });
+  let j = null; try { j = await res.json(); } catch (e) {}
+  if (!res.ok) { const err = new Error((j && j.message) || 'Server error'); err.code = (j && j.error) || 'server'; err.status = res.status; throw err; }
+  return j || {};
+}
+
+/* ---------- supporter crown ---------- */
+async function vtRefreshOwned() {
+  try { const r = await vtPost('/me'); VT.owned = r.owned || []; } catch (e) {}
+  try { const list = await VT.sdk.purchases(); for (const p of list || []) await vtClaim(p.purchaseId, true); } catch (e) {}
+  vtRerender();
+}
+async function vtClaim(purchaseId, quiet) {
+  if (!purchaseId || VT.claiming.has(purchaseId)) return;
+  VT.claiming.add(purchaseId);
+  try {
+    const r = await vtPost('/claim', { purchaseId });
+    VT.owned = r.owned || VT.owned;
+    if (!quiet) toast('Thank you! Your supporter crown 👑 now shows next to your name.');
+    vtBadgeToRoom();
+  } catch (e) {
+    if (!quiet) toast('Payment received, but we could not unlock it yet. Reopen the game and it will unlock.', true);
+  } finally { VT.claiming.delete(purchaseId); vtRerender(); }
+}
+async function vtBuy() {
+  if (!VT.sdk || VT.busy) return;
+  VT.busy = true;
+  try {
+    const r = await VT.sdk.purchase(VT_PRODUCT);
+    await vtClaim(r.purchaseId);
+  } catch (e) {
+    const c = vtErr(e);
+    if (c === 'owned') { await vtRefreshOwned(); toast('You already have the supporter crown.'); }
+    else if (c === 'cancelled') {}
+    else if (c === 'signed_out') toast('Sign in to Lagos Life first.', true);
+    else if (c === 'not_for_sale' || c === 'off') toast('The crown is not on sale right now.', true);
+    else if (c === 'payment_failed') toast('The payment did not go through.', true);
+    else toast('Could not open the pay sheet. Try again.', true);
+  } finally { VT.busy = false; vtRerender(); }
+}
+/* if you buy while sitting in a lobby, the crown appears straight away */
+function vtBadgeToRoom() {
+  const s = ui.state;
+  if (!s || ui.mode !== 'online' || s.status !== 'lobby' || !s.playerIds.includes(ui.me)) return;
+  const me = P(s, ui.me);
+  dispatch({ type: 'join', by: ui.me, name: me.name, token: me.token, badge: 1 }, true);
+}
+
+/* ---------- leaderboard ---------- */
+async function vtShowBoard() {
+  if (!VT.sdk) return;
+  openModal(`<div class="win"><h2>Lagos Life leaderboard</h2><p class="muted">Loading…</p></div>`);
+  let lb;
+  try { lb = await VT.sdk.leaderboard(); } catch (e) { openModal(`<div class="win"><h2>Leaderboard</h2><p class="muted">Could not load it right now.</p><button class="btn" data-act="close-modal">Close</button></div>`); return; }
+  const rows = (lb.top || []).map(r => `<div class="vt-row"><b>${esc(r.rank)}</b><span>${esc(r.name)}</span><span class="cash">${fmt(r.score)}</span></div>`).join('') || '<p class="muted">No scores yet. Win a game to be first.</p>';
+  const me = lb.me ? `<div class="vt-row me"><b>${esc(lb.me.rank)}</b><span>${esc(lb.me.label || 'You')}</span><span class="cash">${fmt(lb.me.score)}</span></div>` : '';
+  openModal(`<div class="win" style="text-align:left"><h2 style="text-align:center">🏆 Lagos Life leaderboard</h2>
+    <p class="small muted" style="text-align:center">Your best net worth when you win a game against bots or online.</p>
+    <div class="vt-board">${rows}</div>${me}
+    <div style="display:flex;justify-content:center;margin-top:10px"><button class="btn" data-act="close-modal">Close</button></div></div>`);
+}
+function vtScore(s) {
+  if (!VT.sdk || s.status !== 'ended' || !s.winner || s.players.length < 2) return;
+  let mine = null;
+  if (ui.mode === 'online' && s.winner === ui.me) mine = P(s, ui.me);
+  if (ui.mode === 'local') { const humans = s.players.filter(p => !p.bot); if (humans.length === 1 && humans[0].id === s.winner) mine = humans[0]; }
+  if (!mine) return;
+  const key = (s.code || 'local') + ':' + (s.startedAt || s.createdAt);
+  if (VT.scored[key]) return;
+  VT.scored[key] = 1;
+  const score = Math.max(0, Math.round(netWorth(s, mine)));
+  VT.sdk.submitScore(score).then(r => { if (r && r.accepted && r.best === score) toast('New best on the Lagos Life leaderboard: ' + fmt(score)); }).catch(() => {});
+}
+
+/* ---------- pause / resume ---------- */
+function vtPause() {
+  VT.paused = true;
+  VT.musicWas = !!(mpref.on && music.unlocked);
+  if (music.audio) music.audio.pause();
+  Beat.stop();
+  if (ui.mode === 'local') { clearTimeout(ui.auT); clearTimeout(ui.botT); }
+}
+function vtResume() {
+  VT.paused = false;
+  if (VT.musicWas) startMusic();
+  drive();
+}
+
+/* ---------- matches ---------- */
+function vtMatchUpdate(m) {
+  if (!m) { VT.match = null; vtRerender(); return; }
+  const was = VT.match;
+  VT.match = m;
+  if ((m.status === 'cancelled' || m.status === 'void') && (!was || was.status !== m.status)) toast('The Lagos Life match was called off. Any stake goes back to you.', true);
+  if (m.status === 'done' && (!was || was.status !== 'done') && m.stake > 0) {
+    const me = m.me || (VT.player && VT.player.id);
+    toast(m.winner === me ? `You won the ${vtMoney(m.stake * m.seats)} pot (less the house cut)!` : m.winner === 'draw' ? 'Draw. Stakes returned.' : 'Match settled.');
+  }
+  if (VT.wantRoom && (m.status === 'open' || m.status === 'playing')) { VT.wantRoom = false; vtEnterRoom(m); }
+  vtMaybeStart();
+  vtRerender();
+}
+function vtLive() { const m = VT.match; return m && (m.status === 'open' || m.status === 'playing') ? m : null; }
+function vtHostOf(m) { return m.players && m.players[0] ? vtSid(m.players[0].id) : null; }
+
+async function vtEnterRoom(m) {
+  if (!onlineOK()) { toast('Still connecting to the game server…', true); return; }
+  const code = vtCode(m);
+  if (!code) return;
+  if (ui.mode === 'online' && ui.code === code && ui.state) { if (ui.state.status === 'lobby') renderLobby(ui.state); return; }
+  const me = readMe();
+  const host = vtHostOf(m) === ui.me;
+  await enterRoom(code, true);
+  if (!host) NET.pendingJoin = me;
+  const note = $('.screen .note'); if (note) note.innerHTML = host ? 'Opening your match table…' : 'Waiting for the match host to open the table…';
+  clearTimeout(VT.createT);
+  if (host) VT.createT = setTimeout(() => {
+    if (ui.state || ui.code !== code) return;              // the table already exists: we just rejoined it
+    const settings = Object.assign({}, ui.createSettings || DEFAULT_SETTINGS, { maxPlayers: Math.max(2, Math.min(4, m.seats || 2)), public: false, vatarMatch: m.id, vatarStake: m.stake || 0 });
+    let s = newGame({ mode: 'online', code, hostId: ui.me, settings });
+    s = reduce(s, { type: 'join', by: ui.me, actor: ui.me, name: me.name, token: me.token, badge: me.badge }).state;
+    commit(s);
+  }, 2200);
+}
+function vtMaybeStart() {
+  const s = ui.state, m = VT.match;
+  if (!s || !m || ui.mode !== 'online' || s.hostId !== ui.me || s.status !== 'lobby' || s.settings.vatarMatch !== m.id || m.status !== 'playing') return;
+  const need = (m.players || []).map(p => vtSid(p.id));
+  if (!need.length || !need.every(id => s.playerIds.includes(id))) return;
+  if (VT.starting === m.id) return;
+  VT.starting = m.id;
+  dispatch({ type: 'start', by: ui.me });
+}
+async function vtReport(s) {
+  const m = VT.match;
+  const id = s.settings.vatarMatch;
+  const players = (m && m.id === id && m.players) || [];
+  const w = players.find(p => vtSid(p.id) === s.winner);
+  const winner = w ? w.id : 'draw';
+  for (let i = 0; i < 4; i++) {
+    try {
+      const r = await vtPost('/result', { matchId: id, winner });
+      if (r.settled) toast('Result sent to Lagos Life.');
+      return;
+    } catch (e) {
+      if (e.status && e.status < 500) return;              // already settled, not playing, etc.
+      await sleep(3000 * (i + 1));
+    }
+  }
+}
+async function vtMatchAct(kind) {
+  if (!VT.sdk || VT.busy) return;
+  if (!onlineOK()) { toast('Still connecting to the game server…', true); return; }
+  const me = readMe();
+  if (!me.name || me.name === 'Player') { toast('Type your name first.', true); return; }
+  VT.busy = true; vtRerender();
+  try {
+    let m;
+    if (kind === 'create') m = await VT.sdk.match.create({ stake: VT.stake, seats: VT.seats });
+    else if (kind === 'quick') m = await VT.sdk.match.quick({ stake: VT.stake });
+    else {
+      const code = String(($('#vtCode') || {}).value || '').trim().toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) { toast('Type the 6-letter match code.', true); return; }
+      m = await VT.sdk.match.join(code);
+    }
+    VT.wantRoom = true;
+    vtMatchUpdate(m);
+  } catch (e) {
+    const c = vtErr(e);
+    const msg = { friendly_only: 'This world only allows friendly matches right now. Pick Friendly.', not_found: 'No match with that code.', not_open: 'That match has already started or ended.',
+      limit: 'You already have a match going. Finish or leave it first.', signed_out: 'Sign in to Lagos Life first.', cancelled: '', rate_limited: 'Slow down a little and try again.',
+      off: 'Matches are switched off right now.', not_multiplayer: 'Matches are not switched on for this game yet.' }[c];
+    if (msg !== '') toast(msg || 'Could not set up the match. Try again.', true);
+  } finally { VT.busy = false; vtRerender(); }
+}
+async function vtLeaveMatch() {
+  try { await VT.sdk.match.leave(); } catch (e) {}
+  VT.match = null; vtRerender();
+}
+
+/* ---------- screens ---------- */
+function homeExtraHTML() {
+  if (!VT.sdk) return '';
+  const has = VT.owned.includes(VT_PRODUCT);
+  return `<div class="mode vt-card">
+    <div class="kicker">Lagos Life</div>
+    <h2>Hi ${esc(VT.player.name || 'there')}</h2>
+    <p>Play a Lagos Life match with friends from the Online screen, climb the leaderboard, and support the game.</p>
+    <div class="row">
+      <button class="btn big" data-vt="board">🏆 Leaderboard</button>
+      ${has ? `<span class="chip y" style="align-self:center">👑 Supporter</span>` : `<button class="btn primary big" data-vt="buy" ${VT.busy ? 'disabled' : ''}>👑 Get the supporter crown</button>`}
+    </div>
+    ${has ? '' : '<p class="small muted" style="margin:0">A gold crown next to your name in every game. Looks only; it gives no advantage.</p>'}
+  </div>`;
+}
+function onlineExtraHTML() {
+  if (!VT.sdk) return '';
+  const m = vtLive();
+  if (m) {
+    const inRoom = ui.mode === 'online' && ui.code === vtCode(m);
+    return `<div class="card vt-card" id="vtMatch"><h3>Lagos Life match <span class="chip ${m.status === 'open' ? 'g' : 'y'}">${m.status === 'open' ? 'Waiting for players' : 'In play'}</span></h3>
+      <div style="display:flex;align-items:center;gap:8px"><span class="lbl">Match code</span><span class="code" style="font-size:1.5rem">${esc(m.code)}</span></div>
+      <p class="small muted" style="margin:0">${(m.players || []).length} of ${m.seats} players · ${m.stake ? vtMoney(m.stake) + ' in-game stake each' : 'Friendly'}. Friends join with this code in Lagos Life.</p>
+      <div style="display:grid;gap:6px">${(m.players || []).map(p => `<div class="room"><div class="grow"><b>${esc(p.name)}</b>${p.id === (m.me || VT.player.id) ? ' <span class="chip y">You</span>' : ''}</div></div>`).join('')}</div>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">${inRoom ? '' : `<button class="btn green" data-vt="enter">Go to the table</button>`}${m.status === 'open' ? `<button class="btn ghost" data-vt="leave">Leave match</button>` : ''}</div>
+    </div>`;
+  }
+  return `<div class="card vt-card" id="vtMatch"><h3>Lagos Life match</h3>
+    <p class="small muted" style="margin:0">Play 2 to 4 Lagos Life players. The board and rules come from "Create a room" below. Stakes use in-game money only, never real money.</p>
+    <div class="field"><span class="lbl">Players</span><div class="seg">${[2, 3, 4].map(n => `<button type="button" data-vtseats="${n}" class="${VT.seats === n ? 'on' : ''}">${n}</button>`).join('')}</div></div>
+    <div class="field"><span class="lbl">Stake</span><div class="seg">${VT_STAKES.map(n => `<button type="button" data-vtstake="${n}" class="${VT.stake === n ? 'on' : ''}">${n ? vtMoney(n) : 'Friendly'}</button>`).join('')}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-vt="create" ${VT.busy ? 'disabled' : ''}>Create match</button><button class="btn green" data-vt="quick" ${VT.busy ? 'disabled' : ''}>Quick match</button></div>
+    <div class="field"><label for="vtCode">Have a match code?</label>
+      <div style="display:flex;gap:8px"><input class="input" id="vtCode" maxlength="6" placeholder="ABC123" style="text-transform:uppercase;letter-spacing:.15em;font-weight:800"><button class="btn" data-vt="join" ${VT.busy ? 'disabled' : ''}>Join</button></div></div>
+  </div>`;
+}
+function vtRerender() {
+  if (ui.screen === 'home') showHome();
+  else if (ui.screen === 'online') { const keep = $('#vtCode') ? $('#vtCode').value : ''; renderOnline(); if (keep && $('#vtCode')) $('#vtCode').value = keep; }
+}
+function lobbyNote(code) {
+  const s = ui.state;
+  if (s && s.settings && s.settings.vatarMatch) return `Lagos Life match table. The game starts by itself once all ${s.settings.maxPlayers} players are here${s.settings.vatarStake ? `, and the winner takes the ${vtMoney(s.settings.vatarStake * s.settings.maxPlayers)} Lagos Life in-game pot (less the house cut)` : ''}. Keep this page open.`;
+  if (VT.framed) return `Share the code <b>${esc(code)}</b>. Friends tap <b>Play online</b> in Naija Landlord and type the code.`;
+  return `Share the code <b>${esc(code)}</b>, or send this link: <b>${esc(location.origin + location.pathname)}#${esc(code)}</b>. Keep this page open while you host; the game runs from your device.`;
+}
+
+/* every state the page sees */
+function stateSeen(s) {
+  if (!VT.sdk || !s) return;
+  document.body.classList.toggle('vt-matchroom', !!(ui.mode === 'online' && s.settings && s.settings.vatarMatch));
+  if (s.status === 'lobby') setTimeout(vtMaybeStart, 0);
+  if (s.status === 'ended') {
+    vtScore(s);
+    const id = s.settings.vatarMatch;
+    if (id && ui.mode === 'online' && s.playerIds.includes(ui.me) && !VT.reported[id]) { VT.reported[id] = 1; vtReport(s); }
+  }
+}
+
+/* identity and start-up replace the plain web versions */
+function myId() {
+  if (VT.player && VT.player.id) return vtSid(VT.player.id);
+  let id = LS.get('nl-id');
+  if (!id) { id = 'u' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); LS.set('nl-id', id); }
+  return id;
+}
+async function initCaps() {
+  await Promise.race([vtBoot(), sleep(9000)]);
+  ui.me = myId();
+  await netConnect();
+  ui.capsReady = true;
+  if (ui.screen === 'online') { renderOnline(); loadRooms(); }
+  else if (ui.screen === 'home') showHome();
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-vt],[data-vtseats],[data-vtstake],[data-act="lobby-leave"],[data-act="quit-confirm"]');
+  if (!b || b.disabled) return;
+  if (b.dataset.act === 'quit-confirm') {        // quitting a 2-way finish concedes: tell Lagos Life who won
+    const s = ui.state, id = s && s.settings.vatarMatch;
+    if (VT.sdk && id && ui.mode === 'online' && s.status === 'playing' && !VT.reported[id]) {
+      const left = s.players.filter(p => !p.bankrupt && p.id !== ui.me);
+      if (left.length === 1) { VT.reported[id] = 1; vtReport(Object.assign({}, s, { winner: left[0].id })); }
+    }
+    return;
+  }
+  if (b.dataset.act === 'lobby-leave') {         // leaving an unfilled match table also leaves the match
+    const s = ui.state, m = vtLive();
+    if (s && m && s.settings.vatarMatch === m.id && m.status === 'open') vtLeaveMatch();
+    return;
+  }
+  if (b.dataset.vtseats) { VT.seats = +b.dataset.vtseats; vtRerender(); return; }
+  if (b.dataset.vtstake) { VT.stake = +b.dataset.vtstake; vtRerender(); return; }
+  const k = b.dataset.vt;
+  if (k === 'buy') vtBuy();
+  else if (k === 'board') vtShowBoard();
+  else if (k === 'create' || k === 'quick' || k === 'join') vtMatchAct(k);
+  else if (k === 'enter') { const m = vtLive(); if (m) vtEnterRoom(m); }
+  else if (k === 'leave') vtLeaveMatch();
+}, true);
+
+(function vtStyles() {
+  const st = document.createElement('style');
+  st.textContent = `
+  .vt-card{border-color:rgba(247,194,26,.55)!important}
+  .vt-board{display:grid;gap:4px;max-height:50vh;overflow:auto;margin-top:8px}
+  .vt-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.05)}
+  .vt-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vt-row.me{margin-top:8px;background:rgba(247,194,26,.18)}
+  body.vt-matchroom [data-addbot]{display:none}`;
+  document.head.appendChild(st);
+})();
 
 window.claude && window.claude.hot && window.claude.hot.ready ? window.claude.hot.ready(start) : start((window.claude && window.claude.hot && window.claude.hot.data) || {});
 </script></body></html>
